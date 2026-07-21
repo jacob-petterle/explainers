@@ -1,0 +1,15 @@
+{
+  "name": "Explainers — A Field Guide to the Stack",
+  "short_name": "Explainers",
+  "description": "A personal collection of technical explainers — infrastructure, networking, bare metal, observability, and data systems, explained from first principles.",
+  "start_url": "../",
+  "scope": "../",
+  "display": "standalone",
+  "background_color": "#FAFAF6",
+  "theme_color": "#17191B",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon.svg", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
