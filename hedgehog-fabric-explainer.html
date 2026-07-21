@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hedgehog Open Network Fabric — Technical Explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAFAF6;
+    --ink:#17191B;
+    --copper:#B0632F;
+    --copper-soft:#F4E4D3;
+    --solder:#0E5138;
+    --solder-soft:#E3EEE7;
+    --blue:#1E4E79;
+    --blue-soft:#E1EAF2;
+    --rule:#D8D8CE;
+    --rule-dark:#9A9C92;
+    --dim:#63665C;
+    --code-bg:#1E211F;
+    --code-ink:#E8EAE2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+  }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans',system-ui,sans-serif;
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .sheet{max-width:1080px;margin:0 auto;padding:0 28px 80px;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  h1,h2,h3{font-family:'IBM Plex Sans Condensed',sans-serif;line-height:1.12;}
+
+  a.x{color:var(--copper);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;text-decoration-color:#D9B08C;}
+  a.x:hover{text-decoration-color:var(--copper);}
+  a.x::after{content:"\2197";font-size:.72em;vertical-align:super;margin-left:1px;}
+  a.gl{color:inherit;text-decoration:underline dotted 1.5px var(--rule-dark);text-underline-offset:3px;}
+  a.gl:hover{text-decoration-color:var(--copper);color:var(--copper);}
+  a:focus-visible{outline:2px solid var(--copper);outline-offset:2px;}
+
+  a.gl{cursor:help;}
+  #glpop{position:absolute;z-index:50;max-width:300px;background:var(--ink);color:var(--paper);padding:12px 14px;font-size:13.5px;line-height:1.55;border:1.5px solid var(--copper);box-shadow:4px 4px 0 rgba(23,25,27,.18);display:none;}
+  #glpop .t{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#E8B380;display:block;margin-bottom:4px;letter-spacing:.05em;text-transform:uppercase;}
+  #glpop .links{margin-top:9px;display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;font-family:'IBM Plex Mono',monospace;}
+  #glpop a{color:#E8B380;font-weight:600;text-decoration:underline;text-underline-offset:2px;}
+  #glpop .mono{color:#D9C87C;}
+
+  header{border-bottom:3px solid var(--ink);padding:26px 0 22px;}
+  .doc-line{
+    display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--dim);
+    border-bottom:1px solid var(--rule);padding-bottom:12px;margin-bottom:24px;
+  }
+  .doc-line .std{color:var(--copper);font-weight:600;}
+  .masthead{display:flex;gap:32px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;}
+  h1{font-size:clamp(34px,5.4vw,56px);font-weight:700;letter-spacing:-.01em;}
+  h1 .amp{color:var(--copper);}
+  .subtitle{max-width:560px;margin-top:12px;font-size:17px;color:#2E312B;}
+  .spec-box{border:1.5px solid var(--ink);min-width:270px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  .spec-box div{display:flex;justify-content:space-between;gap:18px;padding:7px 12px;border-bottom:1px solid var(--rule);}
+  .spec-box div:last-child{border-bottom:0;}
+  .spec-box b{font-weight:600;text-align:right;}
+  .spec-box .k{color:var(--dim);}
+
+  section{padding:52px 0 8px;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1.5px solid var(--ink);padding-bottom:10px;margin-bottom:28px;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--paper);background:var(--ink);padding:3px 9px;}
+  h2{font-size:clamp(24px,3.4vw,32px);font-weight:700;}
+  h3{font-size:18px;font-weight:600;margin-bottom:8px;}
+  p{margin-bottom:14px;max-width:74ch;}
+  .lead{font-size:17.5px;}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+  @media(max-width:760px){.two-col{grid-template-columns:1fr;}}
+
+  .def-card{border:1.5px solid var(--ink);}
+  .def-card .tag{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;border-bottom:1.5px solid var(--ink);display:flex;justify-content:space-between;}
+  .def-card.hw .tag{background:var(--solder-soft);color:var(--solder);}
+  .def-card.sw .tag{background:var(--copper-soft);color:var(--copper);}
+  .def-card .body{padding:16px 18px 6px;}
+  .def-card .one-liner{font-family:'IBM Plex Sans Condensed';font-size:21px;font-weight:600;margin-bottom:10px;}
+
+  .pins{list-style:none;margin:6px 0 16px;}
+  .pins li{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--rule);font-size:15px;max-width:78ch;}
+  .pins li:last-child{border-bottom:0;}
+  .pins .pin{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--copper);white-space:nowrap;min-width:104px;letter-spacing:.04em;}
+
+  .scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0;border:1.5px solid var(--ink);margin:20px 0 22px;}
+  .scenarios div{padding:14px 16px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);}
+  .scenarios .q{font-family:'IBM Plex Sans Condensed';font-weight:600;font-size:16.5px;display:block;margin-bottom:4px;}
+  .scenarios .a{font-size:13.5px;color:var(--dim);}
+  .callout{border-left:4px solid var(--copper);background:var(--copper-soft);padding:14px 18px;margin:18px 0;max-width:78ch;font-size:15.5px;}
+  .callout.green{border-left-color:var(--solder);background:var(--solder-soft);}
+  .callout.blue{border-left-color:var(--blue);background:var(--blue-soft);}
+  .callout b{font-weight:600;}
+
+  .diagram-wrap{border:1.5px solid var(--ink);background:#fff;padding:10px 6px 2px;overflow-x:auto;}
+  .diagram-wrap svg{display:block;min-width:720px;width:100%;height:auto;}
+  .fig-cap{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);padding:10px 4px 2px;border-top:1px solid var(--rule);margin-top:8px;}
+  .legend{display:flex;gap:22px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--dim);padding:10px 4px 12px;}
+  .legend span{display:inline-flex;align-items:center;gap:7px;}
+  .swatch{width:22px;height:12px;display:inline-block;border:1px solid var(--rule-dark);}
+  .blk{transition:filter .15s ease;}
+  .blk:hover{filter:brightness(0.96);}
+
+  .api-grid{display:grid;grid-template-columns:360px 1fr;gap:28px;align-items:start;}
+  @media(max-width:860px){.api-grid{grid-template-columns:1fr;}}
+  .tree{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.4px;line-height:1.8;padding:18px 20px;overflow-x:auto;white-space:pre;}
+  .tree .r{color:#E8B380;}
+  .tree .c{color:#8FBF9F;}
+  .tree .cm{color:#7B7F76;}
+  .tabs{display:flex;gap:0;border:1.5px solid var(--ink);border-bottom:0;flex-wrap:wrap;}
+  .tabs button{font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.03em;padding:10px 14px;background:var(--paper);border:0;border-right:1px solid var(--rule);cursor:pointer;color:var(--dim);}
+  .tabs button:focus-visible{outline:2px solid var(--copper);outline-offset:-2px;}
+  .tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper);}
+  .tabpanel{border:1.5px solid var(--ink);}
+  .tabpanel pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.8px;line-height:1.7;padding:18px 20px;overflow-x:auto;margin:0;}
+  .tabpanel .note{padding:12px 16px;font-size:14px;border-top:1.5px solid var(--ink);background:#fff;}
+  .verb{color:#E8B380;font-weight:600;}
+  .key{color:#8FBF9F;}
+  .str{color:#D9C87C;}
+  .cm2{color:#7B7F76;}
+
+  table{width:100%;border-collapse:collapse;border:1.5px solid var(--ink);font-size:14.5px;}
+  thead th{background:var(--ink);color:var(--paper);text-align:left;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:10px 14px;font-weight:600;}
+  tbody td{padding:11px 14px;border-bottom:1px solid var(--rule);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody td:first-child{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;}
+  td.win{color:var(--solder);font-weight:500;}
+  .table-scroll{overflow-x:auto;}
+  .pickwhen{font-family:'IBM Plex Mono',monospace;font-size:12.5px;margin-top:18px;border:1.5px solid var(--ink);}
+  .pickwhen div{padding:10px 14px;border-bottom:1px solid var(--rule);display:flex;gap:14px;flex-wrap:wrap;}
+  .pickwhen div:last-child{border-bottom:0;}
+  .pickwhen b{color:var(--copper);white-space:nowrap;font-weight:600;}
+  .pickwhen span{font-family:'IBM Plex Sans',sans-serif;font-size:14px;}
+
+  .eco{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;}
+  .eco-col{border-top:3px solid var(--ink);padding-top:12px;}
+  .eco-col h3{font-size:16px;text-transform:uppercase;letter-spacing:.04em;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--dim);}
+  .eco-col ul{list-style:none;margin-top:8px;}
+  .eco-col li{padding:7px 0;border-bottom:1px dashed var(--rule);font-size:14.5px;}
+  .eco-col li b{font-weight:600;}
+  .eco-col li span{display:block;font-size:12.5px;color:var(--dim);}
+
+  .gotchas{counter-reset:g;max-width:78ch;}
+  .gotchas li{list-style:none;padding:14px 0 14px 52px;position:relative;border-bottom:1px solid var(--rule);}
+  .gotchas li::before{counter-increment:g;content:counter(g,decimal-leading-zero);position:absolute;left:0;top:16px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);}
+  .gotchas b{font-weight:600;}
+
+  .lab{border:1.5px solid var(--ink);background:#fff;margin-bottom:26px;}
+  .lab-head{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:baseline;padding:12px 18px;border-bottom:1.5px solid var(--ink);background:var(--solder-soft);}
+  .lab-head h3{font-size:20px;margin:0;color:var(--solder);}
+  .lab-head .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);}
+  .lab-body{padding:16px 18px 6px;}
+  .steps{list-style:none;counter-reset:s;}
+  .steps > li{counter-increment:s;position:relative;padding:12px 0 12px 56px;border-bottom:1px dashed var(--rule);}
+  .steps > li:last-child{border-bottom:0;}
+  .steps > li::before{
+    content:"S" counter(s);position:absolute;left:0;top:14px;
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;
+    color:var(--paper);background:var(--solder);padding:2px 8px;
+  }
+  .steps p{font-size:15px;margin-bottom:6px;}
+  .steps pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.6px;line-height:1.7;padding:12px 16px;overflow-x:auto;margin:8px 0 4px;}
+  .steps .expect{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--solder);margin-top:4px;}
+
+  .glossary{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;}
+  @media(max-width:760px){.glossary{grid-template-columns:1fr;}}
+  .glossary dl{margin:0;}
+  .glossary .entry{padding:11px 0;border-bottom:1px dashed var(--rule);}
+  .glossary dt{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);letter-spacing:.03em;}
+  .glossary dd{font-size:14px;color:#2E312B;margin-top:2px;}
+
+  .reading{list-style:none;max-width:80ch;}
+  .reading li{padding:12px 0;border-bottom:1px dashed var(--rule);font-size:15px;}
+  .reading li:last-child{border-bottom:0;}
+  .reading .why{display:block;font-size:13.5px;color:var(--dim);margin-top:2px;}
+
+  footer{margin-top:64px;border-top:3px solid var(--ink);padding-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+
+  /* ================= MOBILE RULES ================= */
+  .mono, code, a.x, a.gl{overflow-wrap:anywhere;}
+  body{overflow-x:hidden;}
+  html{-webkit-text-size-adjust:100%;}
+  table{min-width:560px;}
+  @media (max-width:640px){
+    .sheet{padding:0 16px 60px;}
+    .steps > li{padding:40px 0 12px 0;}
+    .steps > li::before{top:10px;}
+    .gotchas li{padding:38px 0 14px 0;}
+    .gotchas li::before{top:12px;}
+    .pins li{display:block;}
+    .pins .pin{display:block;min-width:0;margin-bottom:2px;}
+    .tree,.tabpanel pre,.steps pre{font-size:11.8px;}
+    .tabs button{flex:1 1 auto;text-align:center;}
+    .spec-box{width:100%;min-width:0;}
+    .masthead{align-items:stretch;}
+    .fig-cap::before{content:"SWIPE \2192  ·  ";color:var(--copper);font-weight:600;}
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <!-- ================= HEADER ================= -->
+  <header>
+    <div class="doc-line">
+      <span>AI Cloud Networking &middot; Technical Explainer</span>
+      <span class="std">Open Source: github.com/githedgehog &middot; Apache-2.0</span>
+      <span>Sheet 1 of 1 &middot; Rev. 26.02</span>
+    </div>
+    <div class="masthead">
+      <div>
+        <h1>HEDGEHOG <span class="amp">FABRIC</span></h1>
+        <p class="subtitle">An open-source Kubernetes operator that turns a pile of whitebox <a class="gl" href="#g-sonic">SONiC</a> switches into a cloud-style network — VPCs, tenant isolation, and zero-touch operations for AI clusters on hardware you own.</p>
+      </div>
+      <div class="spec-box" aria-label="Quick reference">
+        <div><span class="k">Project</span><b>Open Network Fabric</b></div>
+        <div><span class="k">Company</span><b>Hedgehog (hedgehog.cloud)</b></div>
+        <div><span class="k">Latest release</span><b>26.02 &middot; May 2026 (CalVer)</b></div>
+        <div><span class="k">Switch NOS</span><b>Broadcom Ent. SONiC 4.5</b></div>
+        <div><span class="k">Control plane</span><b>K3s + CRDs + gNMI agents</b></div>
+        <div><span class="k">Under / overlay</span><b>eBGP / VXLAN EVPN</b></div>
+        <div><span class="k">Port speeds</span><b>1G &rarr; 800G</b></div>
+        <div><span class="k">Tenancy unit</span><b>VPC (no Tenant CRD)</b></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= 1. WHAT ================= -->
+  <section id="what">
+    <div class="sec-head"><span class="sec-num">1</span><h2>What it is</h2></div>
+    <div class="two-col">
+      <div class="def-card hw">
+        <div class="tag"><span>The Fabric — hardware side</span><span>U-NET1</span></div>
+        <div class="body">
+          <p class="one-liner">A cloud network built from switches you own.</p>
+          <p>Physically, a Hedgehog fabric is a <a class="gl" href="#g-clos">spine-leaf</a> network of commodity switches from Dell, Celestica, Edgecore, or Supermicro — all Broadcom silicon — running <a class="gl" href="#g-sonic">Broadcom Enterprise SONiC</a>. Servers plug into leaves; leaves plug into spines.</p>
+          <p>Between the switches: an <a class="gl" href="#g-ebgp">eBGP underlay</a> (the hyperscaler routing design from RFC 7938). On top: a <a class="gl" href="#g-vxlan">VXLAN</a>/<a class="gl" href="#g-evpn">EVPN</a> overlay that makes isolated virtual networks span any set of switches.</p>
+        </div>
+      </div>
+      <div class="def-card sw">
+        <div class="tag"><span>The control plane — software side</span><span>CRD-K3S</span></div>
+        <div class="body">
+          <p class="one-liner">Kubernetes, but the pods are switches.</p>
+          <p>One control node runs <a class="gl" href="#g-k3s">K3s</a>. Every physical thing (Switch, Server, Connection — together the <a class="gl" href="#g-wiring">wiring diagram</a>) and every logical thing (<a class="gl" href="#g-vpc">VPC</a>, peering, external) is a Kubernetes <a class="gl" href="#g-crd">CRD</a>.</p>
+          <p>A <b>Fabric Controller</b> compiles your intent into per-switch desired state; a <b>Fabric Agent</b> on every switch applies it via <a class="gl" href="#g-gnmi">gNMI</a> and reconciles forever. Switches ship logs/metrics home. Install, discovery, and upgrades are handled by <span class="mono">hhfab</span> (the Fabricator).</p>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:24px" class="lead">The relationship in one sentence: <b>you declare the network you want as YAML; the controller compiles it into switch state; agents on each switch make reality match, continuously.</b> No SSH-ing into switches, no per-box CLI.</p>
+  </section>
+
+  <!-- ================= 2. THE JOB ================= -->
+  <section id="job">
+    <div class="sec-num" style="display:none"></div>
+    <div class="sec-head"><span class="sec-num">2</span><h2>The job it solves</h2></div>
+    <p class="lead">Hedgehog exists for teams who need <b>cloud-provider-style networking on their own metal</b> — especially GPU/neocloud operators renting capacity to multiple customers — without a networking department:</p>
+    <div class="scenarios">
+      <div><span class="q">You rent GPUs to strangers</span><span class="a">Each customer gets a VPC: their own subnets, DHCP, and hardware-enforced isolation on shared switches.</span></div>
+      <div><span class="q">Nobody on staff speaks BGP</span><span class="a">Underlay ASNs, VNIs, VRFs, route-targets — all derived automatically from a few YAML objects.</span></div>
+      <div><span class="q">New rack of switches arrives</span><span class="a">Plug in, power on: switches netboot via ONIE from the control node, install SONiC, self-configure. Zero touch.</span></div>
+      <div><span class="q">GPU traffic needs lossless Ethernet</span><span class="a"><span class="mono">roce: true</span> on a switch reconfigures buffers and QoS for RDMA — no hand-tuned QoS maps.</span></div>
+      <div><span class="q">Tenant needs internet / DC egress</span><span class="a">Border leaves peer BGP with your edge; Gateway nodes add NAT and firewalling per VPC.</span></div>
+      <div><span class="q">Vendor lock-in allergy</span><span class="a">Open source (Apache-2.0), commodity Broadcom switches from four vendors, OCP-published reference designs.</span></div>
+    </div>
+    <div class="callout"><b>The core promise:</b> a small platform team declares VPCs and attachments the way they'd declare Kubernetes Deployments — and gets an AWS-like multi-tenant network, on owned hardware, that keeps itself configured.</div>
+    <h3>What it actually does</h3>
+    <ul class="pins">
+      <li><span class="pin">ZTP / BOOT</span>Switches are discovered, imaged (<a class="gl" href="#g-onie">ONIE</a>), and enrolled automatically by the control node's boot + DHCP services.</li>
+      <li><span class="pin">VPC</span>Per-tenant virtual networks: named subnets, VLANs, per-subnet DHCP (with PXE options), static routes, isolation flags.</li>
+      <li><span class="pin">ATTACH</span><span class="mono">VPCAttachment</span> binds a VPC subnet to a server-facing connection — that switch port now lives in the tenant's network.</li>
+      <li><span class="pin">MULTI-HOME</span>Servers can dual/quad-home to 2–4 leaves via <a class="gl" href="#g-eslag">ESLAG</a> (EVPN multi-homing) for switch-failure tolerance.</li>
+      <li><span class="pin">PEER</span><span class="mono">VPCPeering</span> selectively connects tenant networks; <span class="mono">ExternalPeering</span> connects a VPC to the outside via BGP on <a class="gl" href="#g-border">border leaves</a>.</li>
+      <li><span class="pin">GATEWAY</span>Dedicated gateway nodes (Rust/<a class="gl" href="#g-dpdk">DPDK</a> dataplane + FRR) add NAT, port-forwarding, and stateful edge services per VPC. GA since 26.01.</li>
+      <li><span class="pin">ROCE</span>Lossless-Ethernet profile for <a class="gl" href="#g-roce">RoCEv2</a> GPU traffic: DSCP-based queueing, ECN, plus <a class="gl" href="#g-qpn">QPN-aware ECMP</a> on Tomahawk 4G/5 silicon.</li>
+      <li><span class="pin">OBSERVE</span>Every switch runs Grafana Alloy; logs and metrics stream to any Prometheus/Loki-compatible stack you point it at.</li>
+      <li><span class="pin">UPGRADE</span>One-command fabric upgrades (from the immediately preceding release), including switch agents and control plane.</li>
+      <li><span class="pin">VLAB</span>The entire fabric — ONIE boot and all — runs virtually under QEMU/KVM for free experimentation. See the labs in §12.</li>
+    </ul>
+  </section>
+
+  <!-- ================= 3. DIAGRAM ================= -->
+  <section id="diagram">
+    <div class="sec-head"><span class="sec-num">3</span><h2>How it works — one picture</h2></div>
+    <p>Three planes to keep separate in your head: the <b>management plane</b> (control node &harr; switch agents, over a mandatory out-of-band management network), the <b>underlay</b> (eBGP between switches), and the <b>overlay</b> (VXLAN tunnels carrying tenant VPCs). Servers only ever see a VLAN on their port — all the EVPN machinery is invisible to them.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 980 640" role="img" aria-label="Block diagram of a Hedgehog fabric: a control node running K3s with the fabric controller, boot, DHCP and registry services manages switches over a management network using gNMI agents. Two spine switches connect to three leaf switches with eBGP fabric links. Servers attach to leaves, colored by VPC membership: two servers in VPC A, one in VPC B. A border leaf peers with an external network over BGP, and a gateway node attached to the spines provides NAT between VPCs and the outside.">
+        <!-- CONTROL PLANE -->
+        <rect x="20" y="30" width="204" height="330" fill="#FBF1E4" stroke="#B0632F" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="34" y="54" font-family="IBM Plex Mono" font-size="11" fill="#B0632F" letter-spacing="1">CONTROL PLANE</text>
+        <g class="blk"><rect x="40" y="70" width="164" height="180" fill="#FFFFFF" stroke="#B0632F" stroke-width="2.4"/>
+          <text x="122" y="98" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="18" font-weight="700" fill="#B0632F">CONTROL NODE</text>
+          <text x="122" y="118" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">x86 · Flatcar Linux · K3s</text>
+          <rect x="56" y="132" width="132" height="22" fill="#0E5138"/>
+          <text x="122" y="147" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#FFF">FABRIC CONTROLLER</text>
+          <rect x="56" y="160" width="132" height="22" fill="#FFFFFF" stroke="#9A9C92"/>
+          <text x="122" y="175" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#17191B">BOOT · DHCP · ZTP</text>
+          <rect x="56" y="188" width="132" height="22" fill="#FFFFFF" stroke="#9A9C92"/>
+          <text x="122" y="203" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#17191B">OCI REGISTRY (zot)</text>
+          <rect x="56" y="216" width="132" height="22" fill="#FFFFFF" stroke="#9A9C92"/>
+          <text x="122" y="231" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#17191B">TELEMETRY PROXY</text>
+        </g>
+        <text x="122" y="278" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">kubectl + CRDs in,</text>
+        <text x="122" y="293" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">switch configs out</text>
+        <text x="122" y="322" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#B0632F">1 node today · HA planned</text>
+        <text x="122" y="340" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#B0632F">+ OOB mgmt switch (required)</text>
+
+        <!-- mgmt lines to switches -->
+        <g stroke="#B0632F" stroke-width="1.6" stroke-dasharray="5 4" fill="none">
+          <path d="M204 110 L330 110"/>
+          <path d="M204 120 L560 120 L560 96 L620 96"/>
+          <path d="M204 240 L286 240 L286 300 L318 300"/>
+          <path d="M204 250 L276 250 L276 380 L470 380 L470 316 L490 316"/>
+          <path d="M204 260 L266 260 L266 396 L650 396 L650 316 L662 316"/>
+        </g>
+        <text x="236" y="102" font-family="IBM Plex Mono" font-size="9.5" font-weight="600" fill="#B0632F">gNMI / AGENT MGMT</text>
+
+        <!-- FABRIC -->
+        <rect x="250" y="30" width="480" height="440" fill="#F2F4EF" stroke="#9A9C92" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="266" y="54" font-family="IBM Plex Mono" font-size="11" fill="#63665C" letter-spacing="1">THE FABRIC — SPINE-LEAF (CLOS)</text>
+
+        <!-- spines -->
+        <g class="blk"><rect x="330" y="70" width="130" height="52" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+          <text x="395" y="92" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700">SPINE-01</text>
+          <rect x="342" y="98" width="106" height="16" fill="#F4E4D3"/>
+          <text x="395" y="110" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#B0632F">AGENT · SONiC</text></g>
+        <g class="blk"><rect x="620" y="70" width="90" height="52" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+          <text x="665" y="92" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700">SPINE-02</text>
+          <rect x="630" y="98" width="70" height="16" fill="#F4E4D3"/>
+          <text x="665" y="110" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#B0632F">AGENT</text></g>
+
+        <!-- leaves -->
+        <g class="blk"><rect x="318" y="270" width="120" height="60" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+          <text x="378" y="292" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700">LEAF-01</text>
+          <text x="378" y="308" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#63665C">server-leaf · VTEP</text>
+          <rect x="330" y="313" width="96" height="13" fill="#F4E4D3"/>
+          <text x="378" y="323" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#B0632F">AGENT</text></g>
+        <g class="blk"><rect x="490" y="270" width="120" height="60" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+          <text x="550" y="292" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700">LEAF-02</text>
+          <text x="550" y="308" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#63665C">server-leaf · VTEP</text>
+          <rect x="502" y="313" width="96" height="13" fill="#F4E4D3"/>
+          <text x="550" y="323" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#B0632F">AGENT</text></g>
+        <g class="blk"><rect x="662" y="270" width="120" height="60" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+          <text x="722" y="292" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700">LEAF-03</text>
+          <text x="722" y="308" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#63665C">border-leaf · VTEP</text>
+          <rect x="674" y="313" width="96" height="13" fill="#F4E4D3"/>
+          <text x="722" y="323" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#B0632F">AGENT</text></g>
+
+        <!-- ESLAG bracket -->
+        <path d="M330 348 L330 356 L598 356 L598 348" stroke="#1E4E79" stroke-width="1.6" fill="none"/>
+        <text x="464" y="371" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" font-weight="600" fill="#1E4E79">ESLAG REDUNDANCY GROUP (2–4 LEAVES)</text>
+
+        <!-- fabric links spine-leaf -->
+        <g stroke="#17191B" stroke-width="2" fill="none">
+          <path d="M370 122 L378 270"/>
+          <path d="M400 122 L546 270"/>
+          <path d="M428 122 L714 268"/>
+          <path d="M648 122 L390 268"/>
+          <path d="M665 122 L556 270"/>
+          <path d="M688 122 L724 270"/>
+        </g>
+        <text x="452" y="196" font-family="IBM Plex Mono" font-size="9.5" font-weight="600" fill="#17191B" transform="rotate(0)">FABRIC LINKS · eBGP /31s</text>
+
+        <!-- servers -->
+        <g class="blk"><rect x="272" y="408" width="104" height="46" fill="#F4E4D3" stroke="#B0632F" stroke-width="1.8"/>
+          <text x="324" y="428" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="13" font-weight="700" fill="#B0632F">SERVER-1</text>
+          <text x="324" y="444" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#63665C">VPC-A · unbundled</text></g>
+        <g class="blk"><rect x="424" y="408" width="104" height="46" fill="#F4E4D3" stroke="#B0632F" stroke-width="1.8"/>
+          <text x="476" y="428" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="13" font-weight="700" fill="#B0632F">SERVER-2</text>
+          <text x="476" y="444" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#63665C">VPC-A · ESLAG ×2</text></g>
+        <g class="blk"><rect x="576" y="408" width="104" height="46" fill="#E1EAF2" stroke="#1E4E79" stroke-width="1.8"/>
+          <text x="628" y="428" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="13" font-weight="700" fill="#1E4E79">SERVER-3</text>
+          <text x="628" y="444" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#63665C">VPC-B · unbundled</text></g>
+
+        <!-- server links -->
+        <g stroke="#B0632F" stroke-width="2" fill="none">
+          <path d="M324 408 L360 330"/>
+          <path d="M462 408 L400 330"/>
+          <path d="M490 408 L540 330"/>
+        </g>
+        <g stroke="#1E4E79" stroke-width="2" fill="none">
+          <path d="M628 408 L580 330"/>
+        </g>
+
+        <!-- EDGE -->
+        <rect x="756" y="30" width="204" height="440" fill="#E3EEE7" stroke="#0E5138" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="772" y="54" font-family="IBM Plex Mono" font-size="11" fill="#0E5138" letter-spacing="1">EDGE / OUTSIDE</text>
+        <g class="blk"><rect x="782" y="80" width="150" height="70" fill="#FFFFFF" stroke="#0E5138" stroke-width="2"/>
+          <text x="857" y="106" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700" fill="#0E5138">GATEWAY NODE</text>
+          <text x="857" y="124" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#63665C">NAT · firewall · DPDK</text>
+          <text x="857" y="139" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#63665C">joins K3s as worker</text></g>
+        <g class="blk"><rect x="782" y="250" width="150" height="70" fill="#FFFFFF" stroke="#0E5138" stroke-width="2"/>
+          <text x="857" y="276" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700" fill="#0E5138">EXTERNAL</text>
+          <text x="857" y="294" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#63665C">edge router / upstream</text>
+          <text x="857" y="309" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#63665C">BGP · not managed by HH</text></g>
+        <g stroke="#0E5138" stroke-width="2.2" fill="none">
+          <path d="M710 96 L782 106"/>
+          <path d="M782 285 L722 330"/>
+        </g>
+        <text x="742" y="86" font-family="IBM Plex Mono" font-size="9" font-weight="600" fill="#0E5138">gateway conn</text>
+        <text x="726" y="352" font-family="IBM Plex Mono" font-size="9" font-weight="600" fill="#0E5138">BGP peering</text>
+
+        <text x="266" y="492" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">VPC-A and VPC-B share every switch, but their traffic lives in separate VRFs/VNIs —</text>
+        <text x="266" y="508" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">no packet crosses between them unless a VPCPeering or Gateway explicitly permits it.</text>
+        <text x="36" y="560" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">NOTE: the control node is for config &amp; boot only — it is NOT in the data path. If it dies, tenant traffic keeps flowing;</text>
+        <text x="36" y="576" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">you just can't change anything until it's back.</text>
+        <text x="36" y="614" font-family="IBM Plex Mono" font-size="10.5" fill="#9A9C92">MESH VARIANT: for 1–3 leaves, delete the spines and connect leaves directly — same API, smaller blast radius for labs/edge.</text>
+      </svg>
+      <div class="legend">
+        <span><span class="swatch" style="background:#FBF1E4"></span>management plane</span>
+        <span><span class="swatch" style="background:#F2F4EF"></span>fabric (eBGP underlay)</span>
+        <span><span class="swatch" style="background:#F4E4D3"></span>VPC-A</span>
+        <span><span class="swatch" style="background:#E1EAF2"></span>VPC-B</span>
+        <span><span class="swatch" style="background:#E3EEE7"></span>edge / external</span>
+      </div>
+      <div class="fig-cap">FIG. 3-1 — A minimal Hedgehog deployment. Copper dashed = gNMI management; solid ink = fabric links; server links colored by VPC. The same picture scales to dozens of switches and hundreds of servers.</div>
+    </div>
+  </section>
+
+  <!-- ================= 4. TERMINOLOGY ================= -->
+  <section id="terms">
+    <div class="sec-head"><span class="sec-num">4</span><h2>Terminology decoder — node vs. cluster vs. machine vs. tenant</h2></div>
+    <p class="lead">Hedgehog's vocabulary is small and deliberately network-centric. Most confusion comes from words that mean something in <i>your</i> world (Kubernetes, GPU clusters) but map differently — or not at all — in Hedgehog's object model:</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>You say&hellip;</th><th>Hedgehog object</th><th>What it actually means here</th></tr></thead>
+      <tbody>
+        <tr><td>machine / host / GPU box</td><td><span class="mono">Server</span></td><td>Any physical box cabled into the fabric — GPU nodes, storage, even the control node itself. Its spec is nearly empty (a description and an unused profile): <b>the fabric only cares about its cables</b>, which are <span class="mono">Connection</span> objects.</td></tr>
+        <tr><td>node</td><td><span class="mono">ControlNode</span> / <span class="mono">FabNode</span></td><td>Ambiguous — three meanings. <span class="mono">ControlNode</span>: the K3s management host. <span class="mono">FabNode</span>: a Hedgehog-managed host with a role (today the only role is <span class="mono">gateway</span>). And in casual K8s-speak, "nodes" are whatever joined the K3s cluster (control + gateways). Your GPU nodes are <i>never</i> "nodes" to Hedgehog — they're Servers.</td></tr>
+        <tr><td>cluster</td><td><i>(no object)</i></td><td>Hedgehog has no cluster concept. Your compute cluster (Kubernetes, Slurm, Ray) is invisible to it — it sees only NICs on switch ports. When Hedgehog docs say "cluster," they mean the little K3s <i>management</i> cluster. The network as a whole is called <b>the Fabric</b>.</td></tr>
+        <tr><td>tenant</td><td><span class="mono">VPC</span></td><td>The only tenancy primitive. There is no <span class="mono">Tenant</span>, <span class="mono">Project</span>, or <span class="mono">Org</span> CRD, and no per-tenant API accounts — a "tenant" is just a VPC (or a few) that <i>you</i> mentally assign to a customer. See §7 for what that does and doesn't buy you.</td></tr>
+        <tr><td>switch</td><td><span class="mono">Switch</span></td><td>A SONiC device with a <span class="mono">role</span>: <span class="mono">spine</span>, <span class="mono">server-leaf</span>, <span class="mono">border-leaf</span>, or <span class="mono">mixed-leaf</span> — plus a <span class="mono">SwitchProfile</span> that describes what the hardware can do (§6).</td></tr>
+        <tr><td>cabling / topology</td><td>Wiring Diagram</td><td>Not one CRD but the whole set of Switch + Server + Connection (+ namespace) objects, usually kept in one YAML file, validated by <span class="mono">hhfab</span> before install. It is the machine-readable as-built of your network.</td></tr>
+        <tr><td>the network</td><td>Fabric</td><td>Both the product's name for the whole system and a config value: <span class="mono">fabricMode</span> has exactly one value today, <span class="mono">spine-leaf</span> (mesh is a variant of it, see §6). One control plane manages exactly one fabric.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="callout blue" style="margin-top:20px"><b>The mental model:</b> Hedgehog manages <b>switches</b>, knows <b>servers</b> only as cable endpoints, expresses <b>tenants</b> only as VPCs, and has <b>no idea</b> your GPUs form a cluster. Anything inside the server — VMs, containers, which tenant's job is running — is out of scope and someone else's problem (yours).</div>
+
+    <h3 style="margin-top:28px">The full API surface (every CRD, one tree)</h3>
+    <div class="tree">wiring.githedgehog.com/v1beta1     <span class="cm"># the physical world</span>
+├── <span class="r">Switch</span>            <span class="cm"># role, ASN, ports, breakouts, roce</span>
+├── <span class="r">Server</span>            <span class="cm"># any attached host (incl. control node)</span>
+├── <span class="r">Connection</span>        <span class="cm"># unbundled|bundled|eslag|fabric|mesh|</span>
+│                     <span class="cm">#   gateway|external|static-external|…</span>
+├── SwitchGroup / SwitchProfile / ServerProfile
+└── VLANNamespace     <span class="cm"># allowed VLAN ranges</span>
+
+vpc.githedgehog.com/v1beta1        <span class="cm"># the tenant world</span>
+├── <span class="r">VPC</span>               <span class="cm"># subnets, DHCP, isolation flags</span>
+├── <span class="r">VPCAttachment</span>     <span class="cm"># VPC subnet ⟷ server connection</span>
+├── <span class="r">VPCPeering</span>        <span class="cm"># VPC ⟷ VPC permit lists</span>
+├── IPv4Namespace     <span class="cm"># non-overlapping address pools</span>
+└── External / ExternalAttachment / ExternalPeering
+
+fabricator.githedgehog.com/v1beta1 <span class="cm"># the installer world</span>
+├── <span class="c">Fabricator</span>        <span class="cm"># singleton: whole-fabric config+versions</span>
+├── <span class="c">ControlNode</span>       <span class="cm"># the K3s management host(s)</span>
+└── <span class="c">FabNode</span>           <span class="cm"># role-bearing host; only role: gateway</span>
+
+gateway.githedgehog.com/v1alpha1   <span class="cm"># the edge world</span>
+├── <span class="c">Gateway</span> / GatewayGroup
+└── <span class="c">Peering</span>           <span class="cm"># VPC⟷VPC or VPC⟷outside, with NAT</span>
+
+<span class="cm">internal: dhcp…/DHCPSubnet · agent…/Agent (per-switch state)</span></div>
+    <p style="margin-top:14px" class="fig-cap" >FIG. 4-1 — Everything you can <span class="mono">kubectl apply</span>. Highlighted types are the ones you'll touch weekly; the rest are set up once or managed for you.</p>
+  </section>
+
+  <!-- ================= 5. HANDS-ON ================= -->
+  <section id="api">
+    <div class="sec-head"><span class="sec-num">5</span><h2>Hands-on — what the YAML actually looks like</h2></div>
+    <p class="lead">Six objects cover 90% of daily life. Tabs below are trimmed from real examples in the official docs and repo (<span class="mono">githedgehog/docs</span>, <span class="mono">githedgehog/fabric</span>):</p>
+    <div class="tabs" role="tablist" aria-label="Hedgehog API examples">
+      <button role="tab" aria-selected="true" data-tab="t1">WIRING</button>
+      <button role="tab" aria-selected="false" data-tab="t2">VPC</button>
+      <button role="tab" aria-selected="false" data-tab="t3">ATTACH</button>
+      <button role="tab" aria-selected="false" data-tab="t4">PEER</button>
+      <button role="tab" aria-selected="false" data-tab="t5">ROCE</button>
+      <button role="tab" aria-selected="false" data-tab="t6">GPU-RAIL</button>
+    </div>
+    <div class="tabpanel">
+      <div id="t1" role="tabpanel">
+<pre><span class="cm2"># A switch + a dual-homed server, from the wiring diagram</span>
+<span class="key">apiVersion</span>: wiring.githedgehog.com/v1beta1
+<span class="key">kind</span>: <span class="str">Switch</span>
+<span class="key">metadata</span>: { <span class="key">name</span>: <span class="str">leaf-01</span> }
+<span class="key">spec</span>:
+  <span class="key">role</span>: <span class="str">server-leaf</span>          <span class="cm2"># spine|server-leaf|border-leaf|mixed-leaf</span>
+  <span class="key">profile</span>: <span class="str">dell-s5248f-on</span>    <span class="cm2"># must match a SwitchProfile</span>
+  <span class="key">redundancy</span>: { <span class="key">group</span>: <span class="str">eslag-1</span>, <span class="key">type</span>: <span class="str">eslag</span> }
+  <span class="key">portBreakouts</span>: { <span class="str">"E1/55"</span>: <span class="str">"4x25G"</span> }
+---
+<span class="key">kind</span>: <span class="str">Connection</span>
+<span class="key">metadata</span>: { <span class="key">name</span>: <span class="str">server-2--eslag--leaf-01--leaf-02</span> }
+<span class="key">spec</span>:
+  <span class="key">eslag</span>:                     <span class="cm2"># LAG across 2–4 leaves (EVPN MH)</span>
+    <span class="key">links</span>:
+      - <span class="key">server</span>: { <span class="key">port</span>: <span class="str">server-2/enp2s1</span> }
+        <span class="key">switch</span>: { <span class="key">port</span>: <span class="str">leaf-01/E1/1</span> }
+      - <span class="key">server</span>: { <span class="key">port</span>: <span class="str">server-2/enp2s2</span> }
+        <span class="key">switch</span>: { <span class="key">port</span>: <span class="str">leaf-02/E1/1</span> }</pre>
+        <div class="note">The wiring diagram is your as-built, as code. <span class="mono">hhfab validate</span> catches miscabling <i>before</i> install, and the admission webhook keeps rejecting invalid changes forever after.</div>
+      </div>
+      <div id="t2" role="tabpanel" hidden>
+<pre><span class="cm2"># A tenant network: two subnets, DHCP, hard isolation inside</span>
+<span class="key">apiVersion</span>: vpc.githedgehog.com/v1beta1
+<span class="key">kind</span>: <span class="str">VPC</span>
+<span class="key">metadata</span>: { <span class="key">name</span>: <span class="str">tenant-a</span> }
+<span class="key">spec</span>:
+  <span class="key">ipv4Namespace</span>: <span class="str">default</span>   <span class="cm2"># guarantees no overlapping CIDRs</span>
+  <span class="key">vlanNamespace</span>: <span class="str">default</span>   <span class="cm2"># guarantees no VLAN collisions</span>
+  <span class="key">mode</span>: <span class="str">""</span>                  <span class="cm2"># "" = L2VNI (default) · l3vni · l3flat</span>
+  <span class="key">subnets</span>:
+    <span class="key">default</span>:
+      <span class="key">subnet</span>: <span class="str">10.10.1.0/24</span>
+      <span class="key">vlan</span>: <span class="str">1001</span>
+      <span class="key">dhcp</span>: { <span class="key">enable</span>: <span class="str">true</span>, <span class="key">range</span>: { <span class="key">start</span>: <span class="str">10.10.1.10</span> } }
+    <span class="key">gpu-backend</span>:
+      <span class="key">subnet</span>: <span class="str">10.10.2.0/24</span>
+      <span class="key">vlan</span>: <span class="str">1002</span>
+      <span class="key">isolated</span>: <span class="str">true</span>    <span class="cm2"># cut off from other subnets in this VPC</span>
+      <span class="key">restricted</span>: <span class="str">true</span>  <span class="cm2"># hosts inside can't even see each other</span>
+      <span class="key">hostBGP</span>: <span class="str">true</span>     <span class="cm2"># hosts may BGP-peer with their leaf</span></pre>
+        <div class="note">One VPC = one VRF on every switch that needs it, one VNI per subnet — all allocated automatically. <span class="mono">isolated</span>/<span class="mono">restricted</span>/<span class="mono">permit</span> are the intra-tenant firewall knobs (§7).</div>
+      </div>
+      <div id="t3" role="tabpanel" hidden>
+<pre><span class="cm2"># The moment a physical server joins a tenant network</span>
+<span class="key">apiVersion</span>: vpc.githedgehog.com/v1beta1
+<span class="key">kind</span>: <span class="str">VPCAttachment</span>
+<span class="key">metadata</span>: { <span class="key">name</span>: <span class="str">tenant-a-server-2</span> }
+<span class="key">spec</span>:
+  <span class="key">subnet</span>: <span class="str">tenant-a/default</span>   <span class="cm2"># which VPC + subnet</span>
+  <span class="key">connection</span>: <span class="str">server-2--eslag--leaf-01--leaf-02</span>
+  <span class="key">nativeVLAN</span>: <span class="str">false</span>          <span class="cm2"># true = untagged on the port</span>
+
+<span class="cm2"># or, one-liner from the control node:</span>
+<span class="verb">kubectl fabric vpc attach</span> --vpc-subnet tenant-a/default \
+    --connection server-2--eslag--leaf-01--leaf-02</pre>
+        <div class="note"><b>This is the isolation enforcement point.</b> Reassigning a server from tenant-a to tenant-b is: delete one VPCAttachment, create another. The switch port flips VRFs; the server needs only a DHCP renew.</div>
+      </div>
+      <div id="t4" role="tabpanel" hidden>
+<pre><span class="cm2"># Let two tenants exchange traffic — selectively</span>
+<span class="key">kind</span>: <span class="str">VPCPeering</span>
+<span class="key">metadata</span>: { <span class="key">name</span>: <span class="str">tenant-a--tenant-b</span> }
+<span class="key">spec</span>:
+  <span class="key">permit</span>:
+    - <span class="key">tenant-a</span>: { <span class="key">subnets</span>: [<span class="str">default</span>] }
+      <span class="key">tenant-b</span>: { <span class="key">subnets</span>: [<span class="str">default</span>] }
+---
+<span class="cm2"># …or reach the outside world via a border leaf</span>
+<span class="key">kind</span>: <span class="str">ExternalPeering</span>
+<span class="key">spec</span>:
+  <span class="key">permit</span>:
+    <span class="key">vpc</span>: { <span class="key">name</span>: <span class="str">tenant-a</span>, <span class="key">subnets</span>: [<span class="str">default</span>] }
+    <span class="key">external</span>: { <span class="key">name</span>: <span class="str">upstream-isp</span>,
+                <span class="key">prefixes</span>: [{ <span class="key">prefix</span>: <span class="str">0.0.0.0/0</span> }] }</pre>
+        <div class="note">Default-deny everywhere: no VPC reaches anything — not even another VPC on the same leaf — until a peering explicitly permits specific subnets/prefixes. Route-leaking happens in hardware, at full fabric bandwidth.</div>
+      </div>
+      <div id="t5" role="tabpanel" hidden>
+<pre><span class="cm2"># Lossless Ethernet for RDMA/GPU traffic: one flag</span>
+<span class="key">kind</span>: <span class="str">Switch</span>
+<span class="key">metadata</span>: { <span class="key">name</span>: <span class="str">rail-leaf-01</span> }
+<span class="key">spec</span>:
+  <span class="key">profile</span>: <span class="str">celestica-ds5000</span>   <span class="cm2"># TH5 · 64×800G OSFP</span>
+  <span class="key">roce</span>: <span class="str">true</span>                   <span class="cm2"># lossless queues + DSCP QoS (reboot!)</span>
+  <span class="key">ecmp</span>: { <span class="key">roceQPN</span>: <span class="str">true</span> }      <span class="cm2"># hash on RDMA queue-pair for entropy</span>
+
+<span class="cm2"># What roce:true configures on the switch:</span>
+<span class="cm2">#   DSCP 24/26 → traffic class 3 (lossless, RDMA)</span>
+<span class="cm2">#   DSCP 48    → traffic class 6 (CNP / congestion signals)</span>
+<span class="cm2"># On the GPU hosts, tag NCCL traffic accordingly:</span>
+<span class="verb">export</span> NCCL_IB_TC=96</pre>
+        <div class="note">RoCE is a per-switch <i>boolean</i> — Hedgehog picks the buffer/<a class="gl" href="#g-pfc">PFC/ECN</a> profile for you. Simple, but you can't hand-tune thresholds through the API, enabling it requires a reboot, and it locks port breakouts (§11).</div>
+      </div>
+      <div id="t6" role="tabpanel" hidden>
+<pre><span class="cm2"># PREVIEW: generate a rail-optimized GPU fabric wiring diagram</span>
+<span class="verb">hhfab vlab generate-gpu-rail</span> \
+    --scalable-units 2 \             <span class="cm2"># SUs to stamp out</span>
+    --vpcs 2 \                       <span class="cm2"># tenant VPCs to pre-create</span>
+    --servers-per-vpc-per-scalable-unit 2
+
+<span class="cm2"># What it emits: 2 spines · 4 leaves per SU · 8 rails;</span>
+<span class="cm2"># every GPU server gets one link per rail to a rail-leaf</span>
+<span class="cm2"># (leaf-suNN-rN), /31 point-to-points, a /16 per rail</span>
+<span class="cm2"># inside each VPC's /13, hostBGP enabled.</span></pre>
+        <div class="note"><a class="gl" href="#g-rail">Rail-optimized</a> means GPU <i>n</i> of every server shares a leaf with GPU <i>n</i> of every other server — NCCL's heaviest collective traffic stays one hop away and off the spines. This generator is the seed of Hedgehog's back-end-network story (§8) — today it's a PREVIEW tool that emits VLAB wiring.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 6. TOPOLOGIES & HARDWARE ================= -->
+  <section id="topo">
+    <div class="sec-head"><span class="sec-num">6</span><h2>Topologies it supports — and the hardware menu</h2></div>
+    <h3>Topologies</h3>
+    <ul class="pins">
+      <li><span class="pin">SPINE-LEAF</span>The primary (and only) <span class="mono">fabricMode</span>. Standard 2-tier Clos: every leaf connects to every spine; capacity scales by adding leaves (ports) or spines (bandwidth). Rack-scale to multi-row.</li>
+      <li><span class="pin">MESH</span>For 1–3 leaves: skip the spines, cable leaves directly to each other (added in 25.05). Same API and VPCs — a budget entry point for labs, edge sites, or a first rack.</li>
+      <li><span class="pin">ESLAG</span>Server multi-homing to 2–4 leaves via EVPN ESI multi-homing — survive a leaf failure without proprietary MLAG pairs.</li>
+      <li><span class="pin">BREAKOUTS</span>First-class: split an 800G port into 2×400G, a 100G into 4×25G, etc., declared per-port on the Switch object.</li>
+      <li><span class="pin">RAIL (PREVIEW)</span>Rail-optimized GPU topology via <span class="mono">generate-gpu-rail</span> — 8 rails, 4 leaves per scalable unit (§5, §8).</li>
+      <li><span class="pin">GONE</span><b>Collapsed-core was removed</b> (25.05) and <b>MCLAG is deprecated</b> (removal targeted 26.03 — use ESLAG). Docs/blogs mentioning them are historical.</li>
+    </ul>
+    <h3 style="margin-top:24px">Supported switches (the interesting subset)</h3>
+    <p>All Broadcom silicon, from four vendors. The full, current list lives at <a class="x" href="https://docs.hedgehog.cloud/latest/install-upgrade/supported-devices/" target="_blank" rel="noopener">supported devices</a>; these are the ones that matter for planning:</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Switch</th><th>Silicon</th><th>Ports</th><th>Roles</th><th>RoCE</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Celestica DS5000</td><td>Tomahawk 5</td><td>64×800G OSFP</td><td>spine, leaf</td><td class="win">✓ + QPN ECMP</td><td>The 800G GPU-fabric box. As a leaf it is <b>L3-only</b>: VPCs must use <a class="gl" href="#g-l3vni">L3VNI mode</a>, no ESLAG.</td></tr>
+        <tr><td>Celestica DS4101</td><td>Tomahawk 4G</td><td>32×2×400G OSFP</td><td>spine only</td><td class="win">✓ + QPN ECMP</td><td>400G spine tier for GPU fabrics.</td></tr>
+        <tr><td>Edgecore DCS240</td><td>Trident 4</td><td>32×400G</td><td>spine, leaf</td><td class="win">✓</td><td>400G box that can also be a leaf.</td></tr>
+        <tr><td>Dell Z9332F-ON / Celestica DS4000</td><td>Tomahawk 3</td><td>32×400G</td><td>spine only</td><td class="win">✓</td><td>Previous-gen 400G spines.</td></tr>
+        <tr><td>Dell S5248F / S5232F, Edgecore DCS203/204, Celestica DS3000, Supermicro C4632SB</td><td>Trident 3</td><td>48×25G+8×100G or 32×100G</td><td>spine, leaf</td><td class="win">✓ (most)</td><td>The workhorse front-end / general-purpose leaves.</td></tr>
+        <tr><td>Edgecore EPS202/203</td><td>Trident 3 X3</td><td>48×1G/2.5G + uplinks</td><td>leaf (limited)</td><td>✗</td><td>Campus/management-tier gear.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p style="margin-top:14px"><b>What's <i>not</i> on the menu:</b> NVIDIA Spectrum, Marvell (beyond early Celestica SONiC+ work), Cisco, Arista — and no InfiniBand, ever (it's an Ethernet system). Hedgehog announced NVIDIA <a class="gl" href="#g-spectrumx">Spectrum-X</a> support at GTC in April 2026, but as of the July 2026 open-source repos, every shipped SwitchProfile is Broadcom.</p>
+  </section>
+
+  <!-- ================= 7. ISOLATION ================= -->
+  <section id="isolation">
+    <div class="sec-head"><span class="sec-num">7</span><h2>The isolation &amp; multi-tenancy model, precisely</h2></div>
+    <p class="lead">Everything is <b>default-deny</b> and enforced in switch hardware (VRFs, VLANs, ACLs). Isolation stacks in four layers, coarse to fine:</p>
+    <ul class="pins">
+      <li><span class="pin">L1 · VPC</span>A VPC is a hermetic routing universe (<a class="gl" href="#g-vni">VRF + VNIs</a>). Tenant A's packets cannot reach tenant B — or the internet — no matter what hosts try. Crossing requires an explicit <span class="mono">VPCPeering</span>, <span class="mono">ExternalPeering</span>, or Gateway policy.</li>
+      <li><span class="pin">L2 · SUBNET</span>Within a VPC, <span class="mono">isolated: true</span> walls a subnet off from sibling subnets; <span class="mono">permit</span> lists selectively re-open pairs/groups. Think "security zones inside one tenant."</li>
+      <li><span class="pin">L3 · HOST</span><span class="mono">restricted: true</span> blocks host-to-host traffic <i>within the same subnet</i>. <b>Yes: two servers on the same leaf, in the same subnet, can be isolated from each other</b> — enforced at the port, not by distance.</li>
+      <li><span class="pin">L4 · EDGE</span>Border leaves filter external routes with BGP communities; Gateway nodes add stateful NAT (masquerade, port-forward, static) and firewalling per VPC.</li>
+    </ul>
+    <h3 style="margin-top:24px">Where the boundary actually sits — "machine isolation"</h3>
+    <p>The enforcement point is the <span class="mono">VPCAttachment</span>: a binding between a VPC subnet and a server's <i>switch port(s)</i>. So isolation is <b>per-NIC/per-port</b>, which for bare-metal single-tenant boxes is exactly "machine isolation" — each machine sits in its tenant's network and nothing else.</p>
+    <p>What it is <b>not</b>: Hedgehog runs nothing on the server, so it cannot see or separate anything <i>inside</i> the machine. If one physical host carries two tenants' VMs on one NIC, Hedgehog can't tell them apart (beyond trunking different VLAN subinterfaces to different subnets — still your hypervisor's job to keep honest). GPU-level isolation, MIG, VM security: out of scope.</p>
+    <div class="callout"><b>The RBAC gap, stated plainly:</b> tenancy is a <i>data-plane</i> concept here. The Kubernetes API that defines VPCs is one trusted admin surface — there are no per-tenant accounts, quotas, or namespaced permissions in the CRDs. If customers need self-service ("create my own subnets"), you build that portal/API yourself and let it talk to Hedgehog. This is the single biggest gap for anyone building a GPU cloud on it (§11).</div>
+  </section>
+
+  <!-- ================= 8. B200 LENS ================= -->
+  <section id="b200">
+    <div class="sec-head"><span class="sec-num">8</span><h2>The B200-cluster lens — could you bring one up on this?</h2></div>
+    <p class="lead">A GPU cluster has (at least) two networks. Judge Hedgehog separately on each:</p>
+    <div class="two-col">
+      <div class="def-card hw">
+        <div class="tag"><span>Front-end / converged network</span><span>READY</span></div>
+        <div class="body">
+          <p class="one-liner">This is Hedgehog's home turf.</p>
+          <p>Provisioning, storage, tenant traffic, internet: Trident-3 leaves (25/100G) or DCS240 (400G), ESLAG dual-homing, one VPC per tenant, DHCP+PXE per subnet, border-leaf BGP + Gateway NAT for egress. Production deployments (neoclouds like FarmGPU) run this today, and the design is published as OCP reference architectures (OPG-64 → OPG-1024 xPUs).</p>
+        </div>
+      </div>
+      <div class="def-card sw">
+        <div class="tag"><span>Back-end / GPU RDMA network</span><span>EMERGING</span></div>
+        <div class="body">
+          <p class="one-liner">The pieces exist; the polish is recent.</p>
+          <p>An <a class="gl" href="#g-hgx">HGX B200</a> node exposes 8×400G NICs — one per GPU, one <a class="gl" href="#g-rail">rail</a> each. The Hedgehog recipe: DS5000 (TH5, 64×800G) rail-leaves with ports broken out to 2×400G, <span class="mono">roce: true</span> (lossless DSCP/ECN), <span class="mono">ecmp.roceQPN: true</span> for flow entropy, L3VNI-mode VPCs with <a class="gl" href="#g-hostbgp">hostBGP</a>, and the <span class="mono">generate-gpu-rail</span> topology (§5). Hedgehog's own blog argues this L3-to-the-host design beats stretched L2 for RoCE fabrics.</p>
+        </div>
+      </div>
+    </div>
+    <h3 style="margin-top:26px">Back-of-envelope: one scalable unit for B200s</h3>
+    <ul class="pins">
+      <li><span class="pin">SERVERS</span>32 HGX B200 nodes ⇒ 256 GPUs, 256×400G rail ports (8 per node).</li>
+      <li><span class="pin">RAIL LEAVES</span>8 rails → with 2×400G breakout a DS5000 serves 128×400G, so rails pair up: 4 DS5000 leaves per SU (the generator's default: 4 leaves, 8 rails, 2 rails per leaf).</li>
+      <li><span class="pin">SPINES</span>2+ DS5000/DS4101 spines; add spines for more bisection, add SUs to scale out — OCP blueprints go to 1,024 xPUs.</li>
+      <li><span class="pin">TENANCY</span>Rail network per tenant = a VPC with a /16 per rail; isolation and re-assignment identical to §7 — this is the differentiator vs. hand-built RoCE fabrics.</li>
+      <li><span class="pin">HOSTS</span>Your job: NCCL env (<span class="mono">NCCL_IB_TC=96</span>), /32-style addressing quirks of L3VNI mode (gratuitous-ARP/<span class="mono">arp_notify</span> on hosts), optional FRR for hostBGP.</li>
+    </ul>
+    <div class="callout green"><b>Honest verdict:</b> front-end network for a B200 cluster — yes, today, comfortably. Back-end RDMA fabric — technically supported (RoCE + 800G TH5 + QPN hashing are real, shipped features) and OCP-blessed on paper, but the rail topology tooling is marked PREVIEW, RoCE tuning is take-it-or-leave-it, and you should expect to be an early adopter validating NCCL performance yourself rather than inheriting a decade of Spectrum-X/InfiniBand tuning. Plan a proof-of-concept, not a copy-paste.</div>
+  </section>
+
+  <!-- ================= 9. ALTERNATIVES ================= -->
+  <section id="alts">
+    <div class="sec-head"><span class="sec-num">9</span><h2>Alternatives — what you'd use instead</h2></div>
+    <p class="lead">Four realistic paths to a multi-tenant data-center fabric. Hedgehog does not win every row:</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Aspect</th><th>Hedgehog</th><th>DIY SONiC/EVPN + automation</th><th>Netris</th><th>Vendor stack (NVIDIA Spectrum-X, Arista+CV)</th></tr></thead>
+      <tbody>
+        <tr><td>What it is</td><td>Open-source K8s operator over Broadcom SONiC</td><td>Community/vendor SONiC or FRR, config via Ansible/Nornir you write</td><td>Commercial "VPC-on-your-metal" controller, multi-NOS</td><td>Integrated NOS + silicon + mgmt suite from one vendor</td></tr>
+        <tr><td>Tenancy API</td><td class="win">VPC/peering CRDs, default-deny, built in</td><td>Whatever you build</td><td class="win">VPC-style, mature UI/API + RBAC</td><td>EVPN primitives; multi-tenancy is on you (or their cloud tooling)</td></tr>
+        <tr><td>Hardware freedom</td><td class="win">4 vendors, Broadcom only, open source</td><td class="win">Widest — anything SONiC/FRR runs on</td><td>Multiple NOS/vendors</td><td>Locked to the vendor's boxes</td></tr>
+        <tr><td>AI back-end maturity</td><td>RoCE + 800G real; rail tooling PREVIEW</td><td>As good as your team makes it</td><td>Front-end focus</td><td class="win">Best-in-class: adaptive routing, telemetry-based CC, years of NCCL tuning</td></tr>
+        <tr><td>Ops burden</td><td class="win">Declarative, self-reconciling, small team</td><td>Highest — you own every playbook and bug</td><td>Low (that's the product)</td><td>Low-medium, plus a support contract</td></tr>
+        <tr><td>Cost / lock-in</td><td class="win">Apache-2.0 + commodity boxes (support subscription optional)</td><td class="win">Cheapest licenses, priciest engineers</td><td>License fee</td><td>Premium hardware + licenses</td></tr>
+        <tr><td>Ecosystem &amp; track record</td><td>Young (startup, CalVer since ~24.x, OCP designs 2026)</td><td>SONiC is hyperscaler-proven; your glue isn't</td><td>~decade old, niche</td><td class="win">Deep bench, huge installed base</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="pickwhen">
+      <div><b>PICK HEDGEHOG WHEN</b><span>you want AWS-style VPC tenancy on owned whitebox Ethernet, run by a platform team that thinks in Kubernetes, and open source matters.</span></div>
+      <div><b>PICK A VENDOR STACK WHEN</b><span>maximum NCCL performance on the GPU back-end and a single throat to choke outweigh cost and openness.</span></div>
+      <div><b>PICK NETRIS WHEN</b><span>you want the same "cloud network on my metal" outcome with commercial support, tenant RBAC, and no appetite for a young open-source project.</span></div>
+      <div><b>PICK DIY WHEN</b><span>you employ real network engineers and have requirements (IPv6, exotic topologies, custom QoS) that opinionated controllers can't express.</span></div>
+    </div>
+  </section>
+
+  <!-- ================= 10. ECOSYSTEM ================= -->
+  <section id="eco">
+    <div class="sec-head"><span class="sec-num">10</span><h2>The ecosystem — names you'll run into</h2></div>
+    <div class="eco">
+      <div class="eco-col">
+        <h3>Repos (github.com/githedgehog)</h3>
+        <ul>
+          <li><b><a class="x" href="https://github.com/githedgehog/fabric" target="_blank" rel="noopener">fabric</a></b><span>the heart: CRDs, controller, switch agent, CLI</span></li>
+          <li><b><a class="x" href="https://github.com/githedgehog/fabricator" target="_blank" rel="noopener">fabricator</a></b><span>installer/operator; builds <span class="mono">hhfab</span> and VLAB</span></li>
+          <li><b><a class="x" href="https://github.com/githedgehog/dataplane" target="_blank" rel="noopener">dataplane</a></b><span>Rust + DPDK packet engine behind the Gateway</span></li>
+          <li><b>gateway</b><span>gateway CRDs — now merged into fabric</span></li>
+          <li><b><a class="x" href="https://github.com/githedgehog/docs" target="_blank" rel="noopener">docs</a></b><span>source of docs.hedgehog.cloud</span></li>
+        </ul>
+      </div>
+      <div class="eco-col">
+        <h3>Tools you'll type</h3>
+        <ul>
+          <li><b>hhfab</b><span>the everything-CLI: init, validate, build installers, run VLAB</span></li>
+          <li><b>kubectl fabric</b><span>kubectl plugin: <span class="mono">vpc create</span>, <span class="mono">vpc attach</span>, <span class="mono">vpc peer</span>, inspect</span></li>
+          <li><b>VLAB</b><span>full virtual fabric on QEMU/KVM — switches ONIE-boot like real ones</span></li>
+          <li><b>Flatcar · K3s · zot</b><span>control node OS, Kubernetes distro, OCI registry</span></li>
+          <li><b>Grafana Alloy</b><span>telemetry shipper on every switch</span></li>
+        </ul>
+      </div>
+      <div class="eco-col">
+        <h3>Hardware &amp; NOS</h3>
+        <ul>
+          <li><b>Broadcom Enterprise SONiC</b><span>the supported commercial SONiC distro (4.5.0 in 26.02)</span></li>
+          <li><b>Celestica / Edgecore / Dell / Supermicro</b><span>the switch vendors; Celestica DS5000 is the 800G flagship</span></li>
+          <li><b>Tomahawk &amp; Trident</b><span>Broadcom ASIC families — TH5=800G, TH4G/TD4=400G, TD3=25/100G</span></li>
+        </ul>
+      </div>
+      <div class="eco-col">
+        <h3>Orbit</h3>
+        <ul>
+          <li><b>Hedgehog (the company)</b><span>hedgehog.cloud — open core + support subscriptions; founded by ex-Cumulus/SONiC people</span></li>
+          <li><b>OCP reference architectures</b><span>AI training + inference fabric blueprints, OPG-64→1024, contributed April 2026</span></li>
+          <li><b>FarmGPU</b><span>example neocloud running it in production</span></li>
+          <li><b>NVIDIA Spectrum-X</b><span>announced support (GTC, Apr 2026) — watch the repos</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 11. GOTCHAS ================= -->
+  <section id="gotchas">
+    <div class="sec-head"><span class="sec-num">11</span><h2>Gotchas &amp; gaps — read before committing</h2></div>
+    <ul class="gotchas">
+      <li><b>No per-tenant RBAC or self-service.</b> The whole API is one trusted-admin surface (§7). A GPU cloud needs its own portal in front, mapping customers → VPCs and gating every change. Budget for building it.</li>
+      <li><b>Single control node; HA is "(Future)".</b> Dataplane survives a control-node outage, but config changes, DHCP for new leases, and switch boot don't. Back up the node; plan its recovery story.</li>
+      <li><b>IPv4 only.</b> No IPv6 in VPCs, underlay, or externals — validators literally reject non-IPv4 CIDRs. Disqualifying for some clouds; check your requirements now, not later.</li>
+      <li><b>The 800G box bends the model.</b> DS5000 (TH5) as a leaf is L3-only: VPCs in <a class="gl" href="#g-l3vni">L3VNI mode</a>, no stretched-L2, no ESLAG, hosts need <span class="mono">arp_notify</span>/GARP habits. Your shiny GPU fabric uses the newest, least-worn code paths.</li>
+      <li><b>RoCE is coarse and disruptive.</b> One boolean, fixed DSCP/queue profile, switch reboot to enable, breakouts locked while on. Fine for standard NCCL; a wall if you need custom PFC/ECN tuning.</li>
+      <li><b>Deprecations in flight.</b> MCLAG and remote VPC peering die in 26.03 — avoid in new designs. Collapsed-core is already gone. Old blog posts and LLM training data will mislead you here.</li>
+      <li><b>Upgrades are single-step.</b> 26.02 upgrades only from 26.01.x — fall two releases behind and you're doing multiple hops. SONiC itself isn't upgraded by fabric upgrades. Known SONiC-level bugs (stale-VNI on VPC recreate, DS5000 transceiver init) are documented in <a class="x" href="https://docs.hedgehog.cloud/latest/known-limitations/known-limitations/" target="_blank" rel="noopener">known limitations</a>.</li>
+      <li><b>One fabric per control plane, one deployment per site.</b> No multi-fabric federation object; inter-site is Gateway/External territory. Scale guidance is bucketed at &lt;50 / &gt;50 switches — beyond that you're pioneering.</li>
+      <li><b>The seductive demo is virtual.</b> VLAB proves the API and workflow, not the dataplane — SONiC-VS forwards in software. Performance claims need metal. Which is exactly what the labs below are for: burn the workflow into your hands for free, then decide what to buy.</li>
+    </ul>
+  </section>
+
+  <!-- ================= 12. LABS ================= -->
+  <section id="lab">
+    <div class="sec-head"><span class="sec-num">12</span><h2>Run it yourself — zero switches required</h2></div>
+    <p class="lead">Hedgehog's virtual lab is unusually honest: switches boot from ONIE images and install SONiC-VS exactly like hardware would. Ladder: read the API on any Linux box → run a whole fabric in VMs → graduate to metal.</p>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB A — Generate &amp; read a fabric (no VMs)</h3><span class="meta">~15 min · any Linux/WSL box · needs Docker</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li>
+            <p><b>Get credentials, then install <span class="mono">hhfab</span></b> — Hedgehog's all-in-one CLI (source: <a class="x" href="https://github.com/githedgehog/fabricator" target="_blank" rel="noopener">githedgehog/fabricator</a>). Downloads need a free token from the <a class="x" href="https://hedgehog.cloud/download" target="_blank" rel="noopener">download request form</a>:</p>
+            <pre>docker login ghcr.io --username &lt;provided&gt; --password &lt;token&gt;
+curl -fsSL https://i.hhdev.io/hhfab | bash</pre>
+            <p class="expect">EXPECT: hhfab installed; `hhfab --version` prints a 26.x version.</p>
+          </li>
+          <li>
+            <p><b>Initialize a dev config and generate the default topology</b> (2 spines, 2 ESLAG leaves + 1 orphan leaf):</p>
+            <pre>hhfab init --dev
+hhfab vlab gen</pre>
+            <p class="expect">EXPECT: "Building VLAB wiring diagram fabricMode=spine-leaf" &rarr; "Generated wiring file name=vlab.generated.yaml".</p>
+          </li>
+          <li>
+            <p><b>Read the wiring diagram you just made.</b> Everything from §4 and §5, generated for you:</p>
+            <pre>grep 'kind:' vlab.generated.yaml | sort | uniq -c
+less vlab.generated.yaml   # Switch, Server, Connection/eslag…</pre>
+            <p class="expect">EXPECT: a census of Switches, Servers, Connections — the CRD tree of FIG. 4-1, in the flesh.</p>
+          </li>
+          <li>
+            <p><b>Now the GPU version.</b> Generate the PREVIEW rail-optimized fabric from §8 and diff the design:</p>
+            <pre>hhfab init --dev -f
+hhfab vlab generate-gpu-rail --scalable-units 1 --vpcs 2
+grep -c 'kind: Connection' vlab.generated.yaml   # count the rails</pre>
+            <p class="expect">EXPECT: 4 rail-leaves, 8 rails, servers with one Connection per rail, pre-built VPCs with a /16 per rail.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB B — Boot the whole fabric in VMs</h3><span class="meta">~2–3 h · Linux + KVM · ≈54 vCPU / 50 GB RAM / 550 GB NVMe (Ubuntu 24.04 tested)</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li>
+            <p><b>Prereqs, then bring it up.</b> Install <span class="mono">qemu-kvm socat</span> and Docker, reuse Lab A's directory, and:</p>
+            <pre>hhfab vlab up    # foreground; Ctrl+C tears it all down</pre>
+            <p class="expect">EXPECT: VMs boot — control node installs K3s, virtual switches ONIE-boot, install SONiC-VS, agents enroll. Wait for all switches Ready (tens of minutes).</p>
+          </li>
+          <li>
+            <p><b>SSH to the control node and meet the API</b> (in a second terminal):</p>
+            <pre>hhfab vlab ssh    # pick control-1
+kubectl get switch,server,connection
+kubectl get agents   # per-switch state: NOS version, heartbeats</pre>
+            <p class="expect">EXPECT: your wiring diagram, live, with agent heartbeats ticking.</p>
+          </li>
+          <li>
+            <p><b>Create two tenants and attach servers</b> — the §5 YAML via the convenience CLI:</p>
+            <pre>kubectl fabric vpc create --name vpc-01 --subnet 10.0.1.0/24 \
+    --vlan 1001 --dhcp --dhcp-start 10.0.1.10
+kubectl fabric vpc create --name vpc-02 --subnet 10.0.2.0/24 \
+    --vlan 1002 --dhcp --dhcp-start 10.0.2.10
+kubectl fabric vpc attach --vpc-subnet vpc-01/default \
+    --connection server-01--eslag--leaf-01--leaf-02
+kubectl fabric vpc attach --vpc-subnet vpc-02/default \
+    --connection server-02--eslag--leaf-01--leaf-02</pre>
+            <p class="expect">EXPECT: agents reconfigure the virtual switches; servers pull DHCP leases from their VPC subnets.</p>
+          </li>
+          <li>
+            <p><b>Prove the isolation model.</b> From server-01, ping server-02 (different VPC) — it must fail. Then:</p>
+            <pre>kubectl fabric vpc peer --vpc vpc-01 --vpc vpc-02</pre>
+            <p class="expect">EXPECT: ping fails → peering applied → ping succeeds. That's §7, L1, demonstrated end-to-end by you.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB C — Graduate to metal</h3><span class="meta">optional · real switches + 1 control node</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li><p><b>Shop from the supported-devices list</b> (§6): a pair of used Dell S5248F-ON or Edgecore DCS203 leaves is the cheap on-ramp — mesh mode means no spine needed for 2–3 leaves. Control node: modest x86, UEFI, plus the mandatory out-of-band management switch (any 1G box). Requirements: <a class="x" href="https://docs.hedgehog.cloud/latest/install-upgrade/requirements/" target="_blank" rel="noopener">install docs</a>.</p></li>
+          <li><p><b>Same workflow, real wiring:</b> write the wiring diagram for your cables, <span class="mono">hhfab validate</span>, <span class="mono">hhfab build</span> a USB/iPXE installer, boot the control node, power the switches, watch ONIE do the rest. Everything you practiced in Labs A–B transfers 1:1 — that's the point of VLAB.</p></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 13. GLOSSARY + READING ================= -->
+  <section id="glossary">
+    <div class="sec-head"><span class="sec-num">13</span><h2>Glossary — the jargon, decoded</h2></div>
+    <div class="glossary">
+      <dl>
+        <div class="entry" id="g-sonic"><dt>SONiC</dt><dd>"Software for Open Networking in the Cloud" — the open-source Linux switch OS started at Microsoft. Hedgehog runs the commercial <b>Broadcom Enterprise SONiC</b> build on all supported switches. <a class="x" href="https://sonicfoundation.dev" target="_blank" rel="noopener">sonicfoundation.dev</a></dd></div>
+        <div class="entry" id="g-clos"><dt>Spine-leaf / Clos</dt><dd>Two-tier network: every leaf (top-of-rack) connects to every spine. Any server is exactly two hops from any other; capacity scales sideways. <a class="x" href="https://en.wikipedia.org/wiki/Clos_network" target="_blank" rel="noopener">wikipedia</a></dd></div>
+        <div class="entry" id="g-ebgp"><dt>eBGP underlay</dt><dd>Each switch is its own BGP autonomous system; routes between switch loopbacks propagate via ordinary BGP — the hyperscaler design from RFC 7938. Hedgehog assigns all ASNs automatically. <a class="x" href="https://datatracker.ietf.org/doc/html/rfc7938" target="_blank" rel="noopener">RFC 7938</a></dd></div>
+        <div class="entry" id="g-vxlan"><dt>VXLAN</dt><dd>Encapsulation that wraps tenant Ethernet frames in UDP so they can cross the routed underlay — the tunnels that let a VPC span switches. <a class="x" href="https://datatracker.ietf.org/doc/html/rfc7348" target="_blank" rel="noopener">RFC 7348</a></dd></div>
+        <div class="entry" id="g-evpn"><dt>EVPN</dt><dd>The BGP-based control plane that tells every switch which MAC/IP lives behind which VXLAN tunnel — no flood-and-learn. Also provides ESI multi-homing (ESLAG). <a class="x" href="https://datatracker.ietf.org/doc/html/rfc8365" target="_blank" rel="noopener">RFC 8365</a></dd></div>
+        <div class="entry" id="g-vni"><dt>VNI / VTEP / VRF</dt><dd>VNI: the 24-bit ID naming a virtual network inside VXLAN packets (one per VPC + one per subnet). VTEP: the switch endpoint that en/decapsulates tunnels (Hedgehog leaves). VRF: a per-tenant routing table on a switch — one per VPC.</dd></div>
+        <div class="entry" id="g-eslag"><dt>ESLAG</dt><dd>Hedgehog's name for EVPN ESI multi-homing: a server LAGs to 2–4 leaves that act as one logical switch, standards-based. Replaces the deprecated MCLAG (proprietary-style switch pairing).</dd></div>
+        <div class="entry" id="g-vpc"><dt>VPC</dt><dd>Virtual Private Cloud — Hedgehog's tenancy unit: named subnets with VLANs, DHCP, and isolation flags, realized as a VRF+VNIs across the fabric. Deliberately shaped like the AWS concept.</dd></div>
+        <div class="entry" id="g-l3vni"><dt>L3VNI mode</dt><dd>VPC mode that routes everything (no stretched L2 between hosts). Required on Tomahawk 5 leaves like the DS5000, which don't do L2VNI. Hosts keep their IP but lose the illusion of a shared segment — hence GARP/<span class="mono">arp_notify</span> host tweaks.</dd></div>
+        <div class="entry" id="g-hostbgp"><dt>hostBGP</dt><dd>Per-subnet option letting servers BGP-peer directly with their leaf — ECMP multihoming and VIP advertisement from the host, cloud-style L3-to-the-host.</dd></div>
+      </dl>
+      <dl>
+        <div class="entry" id="g-crd"><dt>CRD</dt><dd>Custom Resource Definition — a user-defined Kubernetes API type. Hedgehog's whole interface is CRDs: you manage a network with <span class="mono">kubectl</span>. <a class="x" href="https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/" target="_blank" rel="noopener">k8s docs</a></dd></div>
+        <div class="entry" id="g-k3s"><dt>K3s</dt><dd>A lightweight single-binary Kubernetes distribution — the management cluster on Hedgehog's control node. <a class="x" href="https://k3s.io" target="_blank" rel="noopener">k3s.io</a></dd></div>
+        <div class="entry" id="g-gnmi"><dt>gNMI</dt><dd>gRPC Network Management Interface — the streaming config/telemetry protocol the Fabric Agent uses to program SONiC's config database on each switch. <a class="x" href="https://github.com/openconfig/gnmi" target="_blank" rel="noopener">openconfig/gnmi</a></dd></div>
+        <div class="entry" id="g-onie"><dt>ONIE / ZTP</dt><dd>Open Network Install Environment — the bootloader on whitebox switches that netboots a NOS. Hedgehog's control node serves it, giving zero-touch provisioning (ZTP): rack, cable, power, done. <a class="x" href="https://opencomputeproject.github.io/onie/" target="_blank" rel="noopener">ONIE docs</a></dd></div>
+        <div class="entry" id="g-wiring"><dt>Wiring diagram</dt><dd>The YAML description of your physical build: every Switch, Server, and Connection. Input to <span class="mono">hhfab</span>; the fabric's source of truth thereafter.</dd></div>
+        <div class="entry" id="g-border"><dt>Border leaf</dt><dd>A leaf whose job is talking to the outside: it holds <span class="mono">ExternalAttachment</span>s and BGP-peers with edge routers Hedgehog doesn't manage.</dd></div>
+        <div class="entry" id="g-roce"><dt>RoCEv2</dt><dd>RDMA over Converged Ethernet — GPU-to-GPU memory transfers over routed Ethernet, bypassing host CPUs. Needs a "lossless" network to perform, hence PFC/ECN. What NCCL uses on Ethernet AI fabrics. <a class="x" href="https://en.wikipedia.org/wiki/RDMA_over_Converged_Ethernet" target="_blank" rel="noopener">wikipedia</a></dd></div>
+        <div class="entry" id="g-pfc"><dt>PFC / ECN / DSCP</dt><dd>The lossless-Ethernet toolkit: DSCP marks packets into classes, ECN signals congestion early, PFC pauses a single priority class instead of dropping. <span class="mono">roce: true</span> configures a fixed profile of these (DSCP 24/26 → lossless queue, DSCP 48 → congestion notifications).</dd></div>
+        <div class="entry" id="g-qpn"><dt>ECMP QPN hashing</dt><dd>Load-balancing RDMA flows across equal-cost paths by hashing the queue-pair number — more entropy for elephant RDMA flows. TH4G/TH5 silicon only (<span class="mono">ecmp.roceQPN</span>).</dd></div>
+        <div class="entry" id="g-rail"><dt>Rail-optimized</dt><dd>GPU-fabric topology where NIC <i>n</i> of every server connects to the same leaf ("rail <i>n</i>"). NCCL's rail-aligned collectives then stay one hop away, keeping spines uncongested. 8 rails for 8-GPU HGX nodes.</dd></div>
+        <div class="entry" id="g-hgx"><dt>HGX B200</dt><dd>NVIDIA's 8×Blackwell-GPU server building block; typical configs pair each GPU with a 400G ConnectX-7/BlueField NIC — hence 8 rails × 400G per node of back-end bandwidth.</dd></div>
+        <div class="entry" id="g-spectrumx"><dt>Spectrum-X</dt><dd>NVIDIA's Ethernet AI-networking platform (Spectrum-4 switches + BlueField DPUs, adaptive routing, telemetry congestion control). The main commercial rival for Ethernet GPU back-ends. <a class="x" href="https://www.nvidia.com/en-us/networking/spectrumx/" target="_blank" rel="noopener">nvidia.com</a></dd></div>
+        <div class="entry" id="g-dpdk"><dt>DPDK</dt><dd>Data Plane Development Kit — userspace packet processing that bypasses the kernel for speed. Hedgehog's Gateway dataplane is Rust on DPDK. <a class="x" href="https://www.dpdk.org" target="_blank" rel="noopener">dpdk.org</a></dd></div>
+      </dl>
+    </div>
+
+    <h3 style="margin-top:36px;border-top:1.5px solid var(--ink);padding-top:18px">Further reading — where to go deeper</h3>
+    <ul class="reading">
+      <li><a class="x" href="https://docs.hedgehog.cloud/" target="_blank" rel="noopener">docs.hedgehog.cloud</a><span class="why">The official docs — concepts, user guide, install requirements, release notes. Versioned; "latest" tracks the current release.</span></li>
+      <li><a class="x" href="https://docs.hedgehog.cloud/latest/architecture/fabric/" target="_blank" rel="noopener">Architecture: Fabric</a><span class="why">The single best page for how underlay, overlay, VPCs, and peering actually fit together — the deep version of §3 and §7.</span></li>
+      <li><a class="x" href="https://github.com/githedgehog/fabric" target="_blank" rel="noopener">githedgehog/fabric</a><span class="why">The source of truth. <span class="mono">api/</span> holds every CRD with kubebuilder validation — when docs and code disagree, this wins.</span></li>
+      <li><a class="x" href="https://hedgehog.cloud/ocp-reference-architecture-for-ai-networks" target="_blank" rel="noopener">OCP reference architectures for AI networks</a><span class="why">The validated OPG-64→1024 blueprints for training/inference fabrics — your starting point for a real B200 design.</span></li>
+      <li><a class="x" href="https://hedgehog.cloud/blog/disaggregated-inference-part-2" target="_blank" rel="noopener">Blog: Designing the RoCE fabric — why L3 to the host wins</a><span class="why">Hedgehog's own argument for the L3VNI/hostBGP design you'd use on TH5 GPU leaves; explains the §8 recipe's reasoning.</span></li>
+      <li><a class="x" href="https://docs.hedgehog.cloud/latest/vlab/overview/" target="_blank" rel="noopener">VLAB documentation</a><span class="why">Everything Labs A–B glossed over: resource sizing, topology flags, SSH access, the demo walkthrough with test servers.</span></li>
+      <li><a class="x" href="https://datatracker.ietf.org/doc/html/rfc7938" target="_blank" rel="noopener">RFC 7938 — BGP in large-scale data centers</a><span class="why">The Facebook/Arista paper-turned-RFC that defines the underlay design Hedgehog automates. Short and readable.</span></li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>SOURCES: github.com/githedgehog (fabric · fabricator · docs · gateway · dataplane, cloned 2026-07-20) · docs.hedgehog.cloud · hedgehog.cloud</span>
+    <span>HEDGEHOG FABRIC — EXPLAINER · REV. 26.02</span>
+  </footer>
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.tabs [role="tab"]');
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(b => b.setAttribute('aria-selected', b === btn ? 'true' : 'false'));
+      document.querySelectorAll('.tabpanel [role="tabpanel"]').forEach(p => {
+        p.hidden = (p.id !== btn.dataset.tab);
+      });
+    });
+  });
+  // ---- Glossary popover: hover (desktop) / tap (mobile) ----
+  (function(){
+    const pop = document.createElement('div');
+    pop.id = 'glpop';
+    document.body.appendChild(pop);
+    let pinned = false;
+
+    function fill(link){
+      const id = (link.getAttribute('href')||'').slice(1);
+      const entry = document.getElementById(id);
+      if(!entry) return false;
+      const dt = entry.querySelector('dt');
+      const dd = entry.querySelector('dd');
+      if(!dt || !dd) return false;
+      const ext = dd.querySelector('a');
+      const def = dd.cloneNode(true);
+      def.querySelectorAll('a').forEach(a => a.remove());
+      pop.innerHTML =
+        '<span class="t">' + dt.textContent + '</span>' + def.innerHTML +
+        '<div class="links">' +
+        (ext ? '<a href="' + ext.href + '" target="_blank" rel="noopener">Dive deeper ↗</a>' : '') +
+        '<a href="#' + id + '" class="jump">Full glossary ↓</a></div>';
+      return true;
+    }
+    function show(link){
+      if(!fill(link)) return;
+      const r = link.getBoundingClientRect();
+      pop.style.display = 'block';
+      const pw = Math.min(300, window.innerWidth - 24);
+      pop.style.maxWidth = pw + 'px';
+      let x = window.scrollX + r.left;
+      const maxX = window.scrollX + window.innerWidth - pop.offsetWidth - 12;
+      if(x > maxX) x = Math.max(window.scrollX + 12, maxX);
+      pop.style.left = x + 'px';
+      pop.style.top = (window.scrollY + r.bottom + 8) + 'px';
+    }
+    function hide(){ pop.style.display = 'none'; pinned = false; }
+
+    document.querySelectorAll('a.gl').forEach(link => {
+      link.addEventListener('mouseenter', () => { if(!pinned) show(link); });
+      link.addEventListener('mouseleave', () => {
+        setTimeout(() => { if(!pinned && !pop.matches(':hover')) hide(); }, 120);
+      });
+      link.addEventListener('click', (e) => { e.preventDefault(); pinned = true; show(link); });
+    });
+    pop.addEventListener('mouseleave', () => { if(!pinned) hide(); });
+    pop.addEventListener('click', (e) => { if(e.target.classList.contains('jump')) hide(); });
+    document.addEventListener('click', (e) => {
+      if(pinned && !pop.contains(e.target) && !e.target.closest('a.gl')) hide();
+    });
+    window.addEventListener('scroll', () => { if(!pinned) hide(); }, {passive:true});
+  })();
+</script>
+
+<script type="application/json" id="knowledge-manifest">
+{
+  "topic": "Hedgehog Open Network Fabric",
+  "concepts": [
+    {"term":"Hedgehog Fabric","oneliner":"Open-source Kubernetes operator that turns whitebox Broadcom SONiC switches into a cloud-style multi-tenant network."},
+    {"term":"Wiring diagram","oneliner":"The YAML set of Switch/Server/Connection objects describing the physical build — the fabric's source of truth."},
+    {"term":"Server (CRD)","oneliner":"Any box cabled to the fabric, including the control node; the fabric only cares about its Connections, not its insides."},
+    {"term":"VPC","oneliner":"The only tenancy primitive: subnets + VLANs + DHCP + isolation flags, realized as a VRF and VNIs across switches."},
+    {"term":"VPCAttachment","oneliner":"Binds a VPC subnet to a server-facing connection — the per-port isolation enforcement point."},
+    {"term":"eBGP underlay / VXLAN-EVPN overlay","oneliner":"RFC 7938 routing between switches underneath; EVPN-signaled VXLAN tunnels carry tenant traffic on top."},
+    {"term":"ESLAG","oneliner":"EVPN ESI multi-homing: a server LAGs to 2-4 leaves; replaces deprecated MCLAG."},
+    {"term":"Fabric Agent + gNMI","oneliner":"Per-switch agent that watches its Agent CRD and programs SONiC via gNMI, reconciling continuously."},
+    {"term":"hhfab / VLAB","oneliner":"The installer CLI and its QEMU/KVM virtual lab where switches ONIE-boot exactly like hardware."},
+    {"term":"RoCE mode","oneliner":"Per-switch boolean that configures lossless queues and DSCP QoS for RDMA; reboot required, breakouts locked."},
+    {"term":"Rail-optimized topology","oneliner":"GPU NIC n of every server shares leaf n, keeping NCCL collective traffic one hop away; PREVIEW generator in hhfab."},
+    {"term":"L3VNI mode","oneliner":"Route-only VPC mode required on Tomahawk 5 leaves (DS5000), which lack L2VNI; no stretched L2, no ESLAG."},
+    {"term":"Gateway node","oneliner":"DPDK+FRR host at the fabric edge providing NAT and stateful services per VPC; GA since 26.01."},
+    {"term":"Control node","oneliner":"Single K3s host running controller, boot/DHCP, and registry; config plane only — not in the data path; HA is future work."}
+  ],
+  "mechanisms": [
+    "Switch bring-up: rack switch -> ONIE netboots from control node -> SONiC installs -> Fabric Agent enrolls -> Agent CRD reconciled via gNMI",
+    "Intent flow: kubectl apply VPC/VPCAttachment -> Fabric Controller allocates VNIs/VRFs -> renders per-switch Agent spec -> agents program switches -> status flows back",
+    "Tenant packet walk: server tags VLAN -> leaf maps VLAN to VPC subnet VNI -> VXLAN encap -> eBGP underlay to remote VTEP -> decap -> tenant VRF routing",
+    "Isolation decision: same VPC? subnet isolated/restricted/permit rules apply at leaf. Different VPC? drop unless VPCPeering/Gateway permits. Outside? drop unless ExternalPeering",
+    "RoCE enable: set roce:true -> agent reconfigures buffers/QoS (DSCP 24/26 lossless, 48 CNP) -> switch reboots -> hosts set NCCL_IB_TC=96"
+  ],
+  "scenarios": [
+    "Two servers on the same leaf and same VPC subnet must not talk to each other - which flag, and where is it enforced?",
+    "The control node dies at 2am. What breaks immediately, what keeps working, and what's degraded by morning?",
+    "A customer asks for self-service subnet creation in their VPC. What does Hedgehog give you and what must you build?",
+    "You plan a 256-GPU B200 pod back-end on DS5000 leaves. Which VPC mode, which switch flags, and which parts of the design are PREVIEW-grade?",
+    "A design doc from 2024 proposes collapsed-core with MCLAG pairs. What do you tell the author, release by release?",
+    "Tenant A needs to reach a shared storage VPC but nothing else. Peering, external, or gateway - and why?"
+  ]
+}
+</script>
+</body>
+</html>

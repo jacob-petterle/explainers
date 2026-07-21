@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fleet Management — Ansible, Ironic &amp; the Unified View</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAFAF6; --ink:#17191B;
+    --copper:#B0632F; --copper-soft:#F4E4D3;
+    --solder:#0E5138; --solder-soft:#E3EEE7;
+    --blue:#1E4E79; --blue-soft:#E1EAF2;
+    --rule:#D8D8CE; --rule-dark:#9A9C92; --dim:#63665C;
+    --code-bg:#1E211F; --code-ink:#E8EAE2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+  }
+  body{background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+  .sheet{max-width:1080px;margin:0 auto;padding:0 28px 80px;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  h1,h2,h3{font-family:'IBM Plex Sans Condensed',sans-serif;line-height:1.12;}
+
+  header{border-bottom:3px solid var(--ink);padding:26px 0 22px;}
+  .doc-line{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--rule);padding-bottom:12px;margin-bottom:24px;}
+  .doc-line .std{color:var(--copper);font-weight:600;}
+  .masthead{display:flex;gap:32px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;}
+  h1{font-size:clamp(34px,5.4vw,54px);font-weight:700;letter-spacing:-.01em;}
+  h1 .amp{color:var(--copper);}
+  .subtitle{max-width:600px;margin-top:12px;font-size:17px;color:#2E312B;}
+  .spec-box{border:1.5px solid var(--ink);min-width:270px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  .spec-box div{display:flex;justify-content:space-between;gap:18px;padding:7px 12px;border-bottom:1px solid var(--rule);}
+  .spec-box div:last-child{border-bottom:0;}
+  .spec-box b{font-weight:600;text-align:right;}
+  .spec-box .k{color:var(--dim);}
+
+  section{padding:52px 0 8px;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1.5px solid var(--ink);padding-bottom:10px;margin-bottom:28px;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--paper);background:var(--ink);padding:3px 9px;}
+  h2{font-size:clamp(24px,3.4vw,32px);font-weight:700;}
+  h3{font-size:18px;font-weight:600;margin-bottom:8px;}
+  p{margin-bottom:14px;max-width:74ch;}
+  .lead{font-size:17.5px;}
+
+  .callout{border-left:4px solid var(--copper);background:var(--copper-soft);padding:14px 18px;margin:18px 0;max-width:80ch;font-size:15.5px;}
+  .callout.green{border-left-color:var(--solder);background:var(--solder-soft);}
+  .callout b{font-weight:600;}
+
+  /* big answer strip */
+  .verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0;border:1.5px solid var(--ink);margin:6px 0 10px;}
+  .verdict > div{padding:18px 20px;border-right:1px solid var(--rule);}
+  .verdict > div:last-child{border-right:0;}
+  @media(max-width:860px){.verdict > div{border-right:0;border-bottom:1px solid var(--rule);}}
+  .verdict .role{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;font-weight:600;}
+  .verdict .who{font-family:'IBM Plex Sans Condensed';font-size:22px;font-weight:700;margin-bottom:6px;}
+  .verdict p{font-size:14.5px;margin-bottom:0;}
+  .v-ans .role{color:var(--copper);} .v-iro .role{color:var(--blue);} .v-obs .role{color:var(--solder);}
+
+  /* diagram */
+  .diagram-wrap{border:1.5px solid var(--ink);background:#fff;padding:10px 6px 2px;overflow-x:auto;}
+  .diagram-wrap svg{display:block;min-width:760px;width:100%;height:auto;}
+  .fig-cap{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);padding:10px 4px 8px;border-top:1px solid var(--rule);margin-top:8px;}
+  .blk{transition:filter .15s ease;}
+  .blk:hover{filter:brightness(0.96);}
+
+  /* tool cards */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+  @media(max-width:820px){.two-col{grid-template-columns:1fr;}}
+  .def-card{border:1.5px solid var(--ink);background:#fff;}
+  .def-card .tag{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;border-bottom:1.5px solid var(--ink);display:flex;justify-content:space-between;}
+  .def-card.ans .tag{background:var(--copper-soft);color:var(--copper);}
+  .def-card.iro .tag{background:var(--blue-soft);color:var(--blue);}
+  .def-card .body{padding:16px 18px 8px;}
+  .def-card .one-liner{font-family:'IBM Plex Sans Condensed';font-size:21px;font-weight:600;margin-bottom:10px;}
+  .pins{list-style:none;margin:6px 0 12px;}
+  .pins li{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--rule);font-size:14.5px;}
+  .pins li:last-child{border-bottom:0;}
+  .pins .pin{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;white-space:nowrap;min-width:96px;letter-spacing:.04em;}
+  .ans .pin{color:var(--copper);} .iro .pin{color:var(--blue);}
+
+  pre.code{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.6px;line-height:1.7;padding:16px 18px;overflow-x:auto;margin:10px 0 14px;}
+  .key{color:#8FBF9F;} .str{color:#D9C87C;} .cm2{color:#7B7F76;} .verb{color:#E8B380;font-weight:600;}
+
+  /* state machine */
+  .states{display:flex;align-items:stretch;gap:0;border:1.5px solid var(--ink);overflow-x:auto;margin:14px 0 8px;}
+  .state{flex:1;min-width:128px;padding:12px 14px;border-right:1px solid var(--rule);position:relative;background:#fff;}
+  .state:last-child{border-right:0;}
+  .state .n{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--rule-dark);letter-spacing:.08em;}
+  .state .s{font-family:'IBM Plex Sans Condensed';font-weight:700;font-size:16.5px;display:block;margin:2px 0 4px;color:var(--blue);}
+  .state .d{font-size:12.5px;color:var(--dim);line-height:1.45;display:block;}
+  .state::after{content:"→";position:absolute;right:-7px;top:14px;font-size:14px;color:var(--rule-dark);z-index:2;background:var(--paper);}
+  .state:last-child::after{content:"";}
+
+  /* table */
+  table{width:100%;border-collapse:collapse;border:1.5px solid var(--ink);font-size:14.5px;}
+  thead th{background:var(--ink);color:var(--paper);text-align:left;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:10px 14px;font-weight:600;}
+  tbody td{padding:11px 14px;border-bottom:1px solid var(--rule);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody td:first-child{font-weight:600;white-space:nowrap;}
+  .table-scroll{overflow-x:auto;}
+  td .m{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:block;margin-top:2px;}
+  .yes{color:var(--solder);font-weight:600;} .part{color:var(--copper);font-weight:600;} .no{color:#8A2B2B;font-weight:600;}
+
+  footer{margin-top:64px;border-top:3px solid var(--ink);padding-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <!-- ================= HEADER ================= -->
+  <header>
+    <div class="doc-line">
+      <span>Hardware Management &middot; Technical Explainer</span>
+      <span class="std">Companion to Sheet 1: BMC &amp; Redfish</span>
+      <span>Sheet 2 of 2</span>
+    </div>
+    <div class="masthead">
+      <div>
+        <h1>ANSIBLE, IRONIC <span class="amp">&amp;</span> THE UNIFIED VIEW</h1>
+        <p class="subtitle">Redfish gives every server the same API. These are the tools that stand on top of it — and the honest answer to "can I see my whole fleet in one place?"</p>
+      </div>
+      <div class="spec-box" aria-label="Quick reference">
+        <div><span class="k">Ansible</span><b>fleet automation engine</b></div>
+        <div><span class="k">Ironic</span><b>bare-metal lifecycle svc (OpenStack)</b></div>
+        <div><span class="k">Metal&sup3;</span><b>Ironic, wrapped for Kubernetes</b></div>
+        <div><span class="k">Unified view?</span><b>a third tool category</b></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= 1. THE SHORT ANSWER ================= -->
+  <section id="answer">
+    <div class="sec-head"><span class="sec-num">1</span><h2>The short answer: three different jobs</h2></div>
+    <p class="lead">"A unified view over all your hardware" is actually <b>three separate jobs</b> that people often blur together. Ansible and Ironic each do one of them; neither is primarily a dashboard.</p>
+    <div class="verdict">
+      <div class="v-ans">
+        <div class="role">Job A — Act on many machines</div>
+        <div class="who">Ansible</div>
+        <p><b>Unified control.</b> "Do this to all 400 boxes": reboot, set a BIOS flag, push firmware. Fire-and-forget tasks; no live picture, no database of state.</p>
+      </div>
+      <div class="v-iro">
+        <div class="role">Job B — Manage machine lifecycles</div>
+        <div class="who">Ironic</div>
+        <p><b>Unified registry + workflow.</b> Keeps a database of every node and walks each one through enroll → deploy → recycle. An inventory, but built for provisioning — not for watching.</p>
+      </div>
+      <div class="v-obs">
+        <div class="role">Job C — See everything, live</div>
+        <div class="who">Observability &amp; fleet consoles</div>
+        <p><b>The actual unified view.</b> Prometheus Redfish exporters + Grafana, or vendor consoles (Dell OpenManage Enterprise, HPE OneView), plus a source-of-truth like NetBox.</p>
+      </div>
+    </div>
+    <div class="callout green"><b>Why any of this works at all:</b> Redfish. Because every vendor's BMC answers the same HTTPS/JSON API, one playbook, one provisioning service, or one scraper can address a mixed fleet — Dell next to HPE next to Supermicro — without per-vendor code for the common cases.</div>
+  </section>
+
+  <!-- ================= 2. THE STACK DIAGRAM ================= -->
+  <section id="diagram">
+    <div class="sec-head"><span class="sec-num">2</span><h2>How the layers stack up</h2></div>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 980 620" role="img" aria-label="Layered diagram: at the bottom, a fleet of servers each with a BMC speaking Redfish. Above, three tool lanes: Ansible for automation, Ironic for provisioning, and Prometheus/Grafana plus fleet consoles for observability. At the top, the operator's unified view combining dashboards, inventory, and playbook results.">
+        <!-- TOP: operator -->
+        <g class="blk"><rect x="290" y="24" width="400" height="76" fill="#E3EEE7" stroke="#0E5138" stroke-width="2.2"/>
+          <text x="490" y="55" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="19" font-weight="700" fill="#0E5138">OPERATOR'S "SINGLE PANE OF GLASS"</text>
+          <text x="490" y="78" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">dashboards · alerts · inventory of record · job results</text></g>
+
+        <!-- arrows from lanes up -->
+        <g stroke="#9A9C92" stroke-width="1.8" fill="none">
+          <path d="M170 170 L170 130 L310 130 L310 100"/>
+          <path d="M490 170 L490 100"/>
+          <path d="M810 170 L810 130 L670 130 L670 100"/>
+        </g>
+
+        <!-- LANE: Ansible -->
+        <g class="blk"><rect x="40" y="170" width="260" height="170" fill="#F4E4D3" stroke="#B0632F" stroke-width="2"/>
+          <text x="56" y="196" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#B0632F" letter-spacing="1">AUTOMATE</text>
+          <text x="56" y="224" font-family="IBM Plex Sans Condensed" font-size="21" font-weight="700" fill="#17191B">ANSIBLE</text>
+          <text x="56" y="248" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">playbooks + inventory file</text>
+          <text x="56" y="266" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">redfish_command / _config / _info</text>
+          <text x="56" y="296" font-family="IBM Plex Sans" font-size="12.5" fill="#2E312B">"Set this BIOS flag on</text>
+          <text x="56" y="314" font-family="IBM Plex Sans" font-size="12.5" fill="#2E312B">every machine, tonight."</text></g>
+
+        <!-- LANE: Ironic -->
+        <g class="blk"><rect x="360" y="170" width="260" height="170" fill="#E1EAF2" stroke="#1E4E79" stroke-width="2"/>
+          <text x="376" y="196" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#1E4E79" letter-spacing="1">PROVISION</text>
+          <text x="376" y="224" font-family="IBM Plex Sans Condensed" font-size="21" font-weight="700" fill="#17191B">IRONIC / METAL&sup3;</text>
+          <text x="376" y="248" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">node database + state machine</text>
+          <text x="376" y="266" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">redfish driver · PXE / virtual media</text>
+          <text x="376" y="296" font-family="IBM Plex Sans" font-size="12.5" fill="#2E312B">"Turn rack of raw metal</text>
+          <text x="376" y="314" font-family="IBM Plex Sans" font-size="12.5" fill="#2E312B">into deployed servers."</text></g>
+
+        <!-- LANE: Observe -->
+        <g class="blk"><rect x="680" y="170" width="260" height="170" fill="#E3EEE7" stroke="#0E5138" stroke-width="2"/>
+          <text x="696" y="196" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#0E5138" letter-spacing="1">OBSERVE</text>
+          <text x="696" y="224" font-family="IBM Plex Sans Condensed" font-size="21" font-weight="700" fill="#17191B">MONITORING &amp; DCIM</text>
+          <text x="696" y="248" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">Prometheus redfish exporter → Grafana</text>
+          <text x="696" y="266" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">NetBox · OpenManage Ent. · OneView</text>
+          <text x="696" y="296" font-family="IBM Plex Sans" font-size="12.5" fill="#2E312B">"Show me health, heat &amp;</text>
+          <text x="696" y="314" font-family="IBM Plex Sans" font-size="12.5" fill="#2E312B">power for everything, now."</text></g>
+
+        <!-- Redfish bus -->
+        <rect x="40" y="392" width="900" height="44" fill="#0E5138"/>
+        <text x="490" y="419" text-anchor="middle" font-family="IBM Plex Mono" font-size="13" font-weight="600" fill="#FFFFFF" letter-spacing="2">REDFISH — ONE API, EVERY VENDOR (HTTPS + JSON)</text>
+
+        <!-- arrows lanes to bus -->
+        <g stroke="#9A9C92" stroke-width="1.8" fill="none">
+          <path d="M170 340 L170 392"/>
+          <path d="M490 340 L490 392"/>
+          <path d="M810 340 L810 392"/>
+        </g>
+
+        <!-- fleet -->
+        <g font-family="IBM Plex Mono">
+          <!-- server chips -->
+          <g class="blk"><rect x="60" y="480" width="150" height="90" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+            <text x="135" y="508" text-anchor="middle" font-size="12" font-weight="600" fill="#17191B">DELL R760</text>
+            <rect x="78" y="522" width="114" height="24" fill="#FBF1E4" stroke="#B0632F" stroke-width="1.4"/>
+            <text x="135" y="539" text-anchor="middle" font-size="10.5" fill="#B0632F">BMC: iDRAC</text></g>
+          <g class="blk"><rect x="280" y="480" width="150" height="90" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+            <text x="355" y="508" text-anchor="middle" font-size="12" font-weight="600" fill="#17191B">HPE DL380</text>
+            <rect x="298" y="522" width="114" height="24" fill="#FBF1E4" stroke="#B0632F" stroke-width="1.4"/>
+            <text x="355" y="539" text-anchor="middle" font-size="10.5" fill="#B0632F">BMC: iLO</text></g>
+          <g class="blk"><rect x="500" y="480" width="150" height="90" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+            <text x="575" y="508" text-anchor="middle" font-size="12" font-weight="600" fill="#17191B">SUPERMICRO</text>
+            <rect x="518" y="522" width="114" height="24" fill="#FBF1E4" stroke="#B0632F" stroke-width="1.4"/>
+            <text x="575" y="539" text-anchor="middle" font-size="10.5" fill="#B0632F">BMC</text></g>
+          <g class="blk"><rect x="720" y="480" width="150" height="90" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+            <text x="795" y="508" text-anchor="middle" font-size="12" font-weight="600" fill="#17191B">OCP / WHITEBOX</text>
+            <rect x="738" y="522" width="114" height="24" fill="#FBF1E4" stroke="#B0632F" stroke-width="1.4"/>
+            <text x="795" y="539" text-anchor="middle" font-size="10.5" fill="#B0632F">BMC: OpenBMC</text></g>
+          <text x="900" y="530" font-size="16" fill="#63665C">…</text>
+        </g>
+        <g stroke="#0E5138" stroke-width="1.8" fill="none">
+          <path d="M135 436 L135 480"/><path d="M355 436 L355 480"/><path d="M575 436 L575 480"/><path d="M795 436 L795 480"/>
+        </g>
+        <text x="40" y="602" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">FLEET — mixed vendors, one management plane. Each BMC answers /redfish/v1/ on the isolated mgmt network.</text>
+      </svg>
+      <div class="fig-cap">FIG. 2-1 — Redfish is the horizontal bus; Ansible, Ironic, and monitoring are vertical tools riding on it. The unified view is assembled at the top, fed by the OBSERVE lane (live) and enriched by the other two (state &amp; results).</div>
+    </div>
+  </section>
+
+  <!-- ================= 3. THE TWO TOOLS ================= -->
+  <section id="tools">
+    <div class="sec-head"><span class="sec-num">3</span><h2>Ansible and Ironic, up close</h2></div>
+    <div class="two-col">
+      <div class="def-card ans">
+        <div class="tag"><span>Automation</span><span>Red Hat / open source</span></div>
+        <div class="body">
+          <p class="one-liner">A for-loop with superpowers.</p>
+          <p>Ansible runs <b>playbooks</b> (YAML task lists) against an <b>inventory</b> (your list of BMC addresses). It's agentless — for hardware work it just makes Redfish calls from a control node. Same tool many teams already use for OS config, extended down to the metal.</p>
+          <ul class="pins">
+            <li><span class="pin">redfish_info</span>Gather facts: model, firmware versions, health, sensors — across the fleet.</li>
+            <li><span class="pin">redfish_command</span>Do things: power cycle, inject virtual media, clear logs.</li>
+            <li><span class="pin">redfish_config</span>Set things: BIOS attributes, boot order, BMC network/users.</li>
+          </ul>
+<pre class="code"><span class="cm2"># playbook: reboot every node in group "gpu"</span>
+- hosts: <span class="str">gpu_bmcs</span>
+  tasks:
+    - community.general.redfish_command:
+        <span class="key">category</span>: <span class="str">Systems</span>
+        <span class="key">command</span>: <span class="str">PowerReboot</span>
+        <span class="key">baseuri</span>: <span class="str">"{{ inventory_hostname }}"</span></pre>
+          <p><b>What it doesn't do:</b> keep state. When the playbook ends, Ansible remembers nothing. It's a verb, not a database.</p>
+        </div>
+      </div>
+      <div class="def-card iro">
+        <div class="tag"><span>Provisioning</span><span>OpenStack / open source</span></div>
+        <div class="body">
+          <p class="one-liner">Bare metal, treated like cloud.</p>
+          <p>Ironic is a long-running <b>service</b> with a database of <b>nodes</b>. Each node record holds the BMC address, credentials, driver (<span class="mono">redfish</span> is the standard one), and hardware profile. Ironic then drives each machine through a lifecycle — the "cattle, not pets" model applied to physical servers.</p>
+          <p style="margin-bottom:6px"><b>The node lifecycle it enforces:</b></p>
+          <div class="states">
+            <div class="state"><span class="n">S1</span><span class="s">ENROLL</span><span class="d">register node + BMC creds</span></div>
+            <div class="state"><span class="n">S2</span><span class="s">INSPECT</span><span class="d">boot agent, auto-discover CPUs, RAM, disks, NICs</span></div>
+            <div class="state"><span class="n">S3</span><span class="s">CLEAN</span><span class="d">wipe disks, reset BIOS/RAID to policy</span></div>
+            <div class="state"><span class="n">S4</span><span class="s">AVAILABLE</span><span class="d">in the pool, ready to claim</span></div>
+            <div class="state"><span class="n">S5</span><span class="s">ACTIVE</span><span class="d">image written, OS deployed, handed to user</span></div>
+          </div>
+          <p style="margin-top:12px">…and back to CLEAN when released. <b>Metal&sup3;</b> ("metal cubed") wraps Ironic in Kubernetes resources, so clusters can claim physical machines the way they claim pods.</p>
+          <p><b>What it doesn't do:</b> live dashboards or rich telemetry. Its inventory is a means to provisioning, not a monitoring system.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 4. UNIFIED VIEW SCORECARD ================= -->
+  <section id="scorecard">
+    <div class="sec-head"><span class="sec-num">4</span><h2>So… who gives you the unified view?</h2></div>
+    <p class="lead">Score each option against what "unified view" usually means in practice:</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Capability</th><th>Ansible</th><th>Ironic / Metal&sup3;</th><th>Monitoring + console<br>(Prometheus·Grafana / OME·OneView)</th></tr></thead>
+      <tbody>
+        <tr><td>Inventory of every machine<span class="m">what exists, where, specs, serials</span></td><td><span class="part">PARTIAL</span> — a static hosts file you maintain; <span class="mono">redfish_info</span> can snapshot details</td><td><span class="yes">YES</span> — node DB, auto-populated by hardware inspection</td><td><span class="yes">YES</span> — consoles discover &amp; inventory; NetBox as source of truth</td></tr>
+        <tr><td>Live health &amp; telemetry<span class="m">temps, power, failures, right now</span></td><td><span class="no">NO</span> — only when a playbook runs</td><td><span class="no">NO</span> — tracks provisioning state, not sensors</td><td><span class="yes">YES</span> — this is the whole job: scrape/push, graph, alert</td></tr>
+        <tr><td>Machine lifecycle state<span class="m">enrolled? deploying? in service?</span></td><td><span class="no">NO</span></td><td><span class="yes">YES</span> — the state machine is authoritative</td><td><span class="part">PARTIAL</span> — consoles show status, not workflow</td></tr>
+        <tr><td>Mass actions<span class="m">reboot / reconfigure / patch the fleet</span></td><td><span class="yes">YES</span> — its core strength</td><td><span class="part">PARTIAL</span> — within provisioning workflows</td><td><span class="part">PARTIAL</span> — vendor consoles do firmware baselines well</td></tr>
+        <tr><td>Vendor-neutral<span class="m">mixed Dell/HPE/Supermicro fleet</span></td><td><span class="yes">YES</span> — via Redfish modules</td><td><span class="yes">YES</span> — via the redfish driver</td><td><span class="part">DEPENDS</span> — Prometheus/NetBox yes; OME &amp; OneView favor their own brand</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="callout"><b>The realistic architecture:</b> mature fleets run all three together. <b>NetBox</b> (or Ironic) as the inventory of record → feeds <b>Ansible's</b> inventory for actions → while a <b>Prometheus Redfish exporter</b> scrapes every BMC into <b>Grafana</b> for the live wall of dashboards. The "unified view" is that Grafana wall plus the inventory — with Ansible and Ironic as the hands that act on what you see.</div>
+  </section>
+
+  <!-- ================= 5. DECISION GUIDE ================= -->
+  <section id="pick">
+    <div class="sec-head"><span class="sec-num">5</span><h2>Quick decision guide</h2></div>
+    <ul class="pins" style="max-width:80ch">
+      <li><span class="pin" style="color:var(--copper)">PICK ANSIBLE</span>You have a list of machines and recurring tasks: firmware waves, BIOS standardization, scheduled reboots, audits. Lowest barrier to entry — a laptop and a YAML file.</li>
+      <li><span class="pin" style="color:var(--blue)">PICK IRONIC</span>Machines come and go and you want cloud-style self-service on metal: users request a server, get a freshly imaged one, return it, it gets wiped. Heavier to run; shines at scale or under Kubernetes (Metal&sup3;).</li>
+      <li><span class="pin" style="color:var(--solder)">PICK MONITORING</span>Your actual question is "is everything healthy right now?" Start with a Prometheus Redfish exporter + Grafana; add NetBox when tracking what/where becomes painful.</li>
+      <li><span class="pin">ALL THREE</span>Full-scale fleet operations. They don't compete — they occupy the three lanes in FIG. 2-1, all speaking Redfish to the same BMCs.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>SOURCES: docs.openstack.org/ironic · metal3.io · Ansible community.general redfish modules · dmtf.org/standards/redfish</span>
+    <span>SHEET 2 — FLEET TOOLS ON REDFISH</span>
+  </footer>
+</div>
+</body>
+</html>

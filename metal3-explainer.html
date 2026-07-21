@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metal³ — Bare Metal, the Kubernetes Way</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAFAF6; --ink:#17191B;
+    --copper:#B0632F; --copper-soft:#F4E4D3;
+    --solder:#0E5138; --solder-soft:#E3EEE7;
+    --blue:#1E4E79; --blue-soft:#E1EAF2;
+    --rule:#D8D8CE; --rule-dark:#9A9C92; --dim:#63665C;
+    --code-bg:#1E211F; --code-ink:#E8EAE2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+  }
+  body{background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+  .sheet{max-width:1080px;margin:0 auto;padding:0 28px 80px;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .mono, code, a.x, a.gl{overflow-wrap:anywhere;}
+  h1,h2,h3{font-family:'IBM Plex Sans Condensed',sans-serif;line-height:1.12;}
+
+  a.x{color:var(--copper);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;text-decoration-color:#D9B08C;}
+  a.x:hover{text-decoration-color:var(--copper);}
+  a.x::after{content:"\2197";font-size:.72em;vertical-align:super;margin-left:1px;}
+  a.gl{color:inherit;text-decoration:underline dotted 1.5px var(--rule-dark);text-underline-offset:3px;cursor:help;}
+  a.gl:hover{text-decoration-color:var(--copper);color:var(--copper);}
+  a:focus-visible{outline:2px solid var(--copper);outline-offset:2px;}
+
+  #glpop{position:absolute;z-index:50;max-width:300px;background:var(--ink);color:var(--paper);padding:12px 14px;font-size:13.5px;line-height:1.55;border:1.5px solid var(--copper);box-shadow:4px 4px 0 rgba(23,25,27,.18);display:none;}
+  #glpop .t{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#E8B380;display:block;margin-bottom:4px;letter-spacing:.05em;text-transform:uppercase;}
+  #glpop .links{margin-top:9px;display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;font-family:'IBM Plex Mono',monospace;}
+  #glpop a{color:#E8B380;font-weight:600;text-decoration:underline;text-underline-offset:2px;}
+  #glpop .mono{color:#D9C87C;}
+
+  header{border-bottom:3px solid var(--ink);padding:26px 0 22px;}
+  .doc-line{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--rule);padding-bottom:12px;margin-bottom:24px;}
+  .doc-line .std{color:var(--copper);font-weight:600;}
+  .masthead{display:flex;gap:32px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;}
+  h1{font-size:clamp(36px,5.8vw,58px);font-weight:700;letter-spacing:-.01em;}
+  h1 .amp{color:var(--copper);}
+  .subtitle{max-width:580px;margin-top:12px;font-size:17px;color:#2E312B;}
+  .spec-box{border:1.5px solid var(--ink);min-width:270px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  .spec-box div{display:flex;justify-content:space-between;gap:18px;padding:7px 12px;border-bottom:1px solid var(--rule);}
+  .spec-box div:last-child{border-bottom:0;}
+  .spec-box b{font-weight:600;text-align:right;}
+  .spec-box .k{color:var(--dim);}
+
+  section{padding:52px 0 8px;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1.5px solid var(--ink);padding-bottom:10px;margin-bottom:28px;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--paper);background:var(--ink);padding:3px 9px;}
+  h2{font-size:clamp(24px,3.4vw,32px);font-weight:700;}
+  h3{font-size:18px;font-weight:600;margin-bottom:8px;}
+  p{margin-bottom:14px;max-width:74ch;}
+  .lead{font-size:17.5px;}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+  @media(max-width:760px){.two-col{grid-template-columns:1fr;}}
+  .def-card{border:1.5px solid var(--ink);background:#fff;}
+  .def-card .tag{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;border-bottom:1.5px solid var(--ink);display:flex;justify-content:space-between;}
+  .def-card.api .tag{background:var(--blue-soft);color:var(--blue);}
+  .def-card.engine .tag{background:var(--copper-soft);color:var(--copper);}
+  .def-card .body{padding:16px 18px 6px;}
+  .def-card .one-liner{font-family:'IBM Plex Sans Condensed';font-size:21px;font-weight:600;margin-bottom:10px;}
+
+  .scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0;border:1.5px solid var(--ink);margin:20px 0 22px;}
+  .scenarios div{padding:14px 16px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);}
+  .scenarios .q{font-family:'IBM Plex Sans Condensed';font-weight:600;font-size:16.5px;display:block;margin-bottom:4px;}
+  .scenarios .a{font-size:13.5px;color:var(--dim);}
+  .callout{border-left:4px solid var(--copper);background:var(--copper-soft);padding:14px 18px;margin:18px 0;max-width:78ch;font-size:15.5px;}
+  .callout.green{border-left-color:var(--solder);background:var(--solder-soft);}
+  .callout b{font-weight:600;}
+
+  .pins{list-style:none;margin:6px 0 16px;}
+  .pins li{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--rule);font-size:15px;max-width:74ch;}
+  .pins li:last-child{border-bottom:0;}
+  .pins .pin{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--copper);white-space:nowrap;min-width:110px;letter-spacing:.04em;}
+
+  .diagram-wrap{border:1.5px solid var(--ink);background:#fff;padding:10px 6px 2px;overflow-x:auto;}
+  .diagram-wrap svg{display:block;min-width:760px;width:100%;height:auto;}
+  .fig-cap{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);padding:10px 4px 8px;border-top:1px solid var(--rule);margin-top:8px;}
+  .blk{transition:filter .15s ease;}
+  .blk:hover{filter:brightness(0.96);}
+
+  /* state machine */
+  .states{display:flex;align-items:stretch;gap:0;border:1.5px solid var(--ink);overflow-x:auto;margin:14px 0 8px;}
+  .state{flex:1;min-width:128px;padding:12px 14px;border-right:1px solid var(--rule);position:relative;background:#fff;}
+  .state:last-child{border-right:0;}
+  .state .n{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--rule-dark);letter-spacing:.08em;}
+  .state .s{font-family:'IBM Plex Sans Condensed';font-weight:700;font-size:16.5px;display:block;margin:2px 0 4px;color:var(--blue);}
+  .state .d{font-size:12.5px;color:var(--dim);line-height:1.45;display:block;}
+
+  /* tabs */
+  .tabs{display:flex;gap:0;border:1.5px solid var(--ink);border-bottom:0;flex-wrap:wrap;}
+  .tabs button{font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.03em;padding:10px 16px;background:var(--paper);border:0;border-right:1px solid var(--rule);cursor:pointer;color:var(--dim);}
+  .tabs button:focus-visible{outline:2px solid var(--copper);outline-offset:-2px;}
+  .tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper);}
+  .tabpanel{border:1.5px solid var(--ink);}
+  .tabpanel pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.8px;line-height:1.7;padding:18px 20px;overflow-x:auto;margin:0;}
+  .tabpanel .note{padding:12px 16px;font-size:14px;border-top:1.5px solid var(--ink);background:#fff;}
+  .verb{color:#E8B380;font-weight:600;}
+  .key{color:#8FBF9F;}
+  .str{color:#D9C87C;}
+  .cm2{color:#7B7F76;}
+
+  table{width:100%;border-collapse:collapse;border:1.5px solid var(--ink);font-size:14.5px;min-width:640px;}
+  thead th{background:var(--ink);color:var(--paper);text-align:left;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:10px 14px;font-weight:600;}
+  tbody td{padding:11px 14px;border-bottom:1px solid var(--rule);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody td:first-child{font-weight:600;white-space:nowrap;}
+  .table-scroll{overflow-x:auto;}
+  td .m{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:block;margin-top:2px;}
+
+  .apps{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px;}
+  .app{border:1.5px solid var(--ink);padding:18px 20px 14px;background:#fff;position:relative;}
+  .app::before{content:attr(data-ref);position:absolute;top:14px;right:16px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--rule-dark);letter-spacing:.06em;}
+  .app h3{font-size:19px;}
+  .app p{font-size:14.5px;margin-bottom:8px;}
+  .app .tools{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--copper);letter-spacing:.02em;}
+
+  .gotchas{counter-reset:g;max-width:78ch;}
+  .gotchas li{list-style:none;padding:14px 0 14px 52px;position:relative;border-bottom:1px solid var(--rule);}
+  .gotchas li::before{counter-increment:g;content:counter(g,decimal-leading-zero);position:absolute;left:0;top:16px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);}
+  .gotchas b{font-weight:600;}
+
+  .lab{border:1.5px solid var(--ink);background:#fff;margin-bottom:26px;}
+  .lab-head{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:baseline;padding:12px 18px;border-bottom:1.5px solid var(--ink);background:var(--solder-soft);}
+  .lab-head h3{font-size:20px;margin:0;color:var(--solder);}
+  .lab-head .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);}
+  .lab-body{padding:16px 18px 6px;}
+  .steps{list-style:none;counter-reset:s;}
+  .steps > li{counter-increment:s;position:relative;padding:12px 0 12px 56px;border-bottom:1px dashed var(--rule);}
+  .steps > li:last-child{border-bottom:0;}
+  .steps > li::before{content:"S" counter(s);position:absolute;left:0;top:14px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:var(--paper);background:var(--solder);padding:2px 8px;}
+  .steps p{font-size:15px;margin-bottom:6px;}
+  .steps pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.6px;line-height:1.7;padding:12px 16px;overflow-x:auto;margin:8px 0 4px;}
+  .steps .expect{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--solder);margin-top:4px;}
+
+  .glossary{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;}
+  @media(max-width:760px){.glossary{grid-template-columns:1fr;}}
+  .glossary dl{margin:0;}
+  .glossary .entry{padding:11px 0;border-bottom:1px dashed var(--rule);}
+  .glossary dt{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);letter-spacing:.03em;}
+  .glossary dd{font-size:14px;color:#2E312B;margin-top:2px;}
+  .reading{list-style:none;max-width:80ch;}
+  .reading li{padding:12px 0;border-bottom:1px dashed var(--rule);font-size:15px;}
+  .reading li:last-child{border-bottom:0;}
+  .reading .why{display:block;font-size:13.5px;color:var(--dim);margin-top:2px;}
+
+  footer{margin-top:64px;border-top:3px solid var(--ink);padding-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+
+  /* MOBILE RULES R1–R8 */
+  @media (max-width:640px){
+    .sheet{padding:0 16px 60px;}
+    .steps > li{padding:40px 0 12px 0;}
+    .steps > li::before{top:10px;}
+    .gotchas li{padding:38px 0 14px 0;}
+    .gotchas li::before{top:12px;}
+    .pins li{display:block;}
+    .pins .pin{display:block;min-width:0;margin-bottom:2px;}
+    .steps pre,.tabpanel pre{font-size:11.8px;}
+    .tabs button{flex:1 1 auto;text-align:center;}
+    .spec-box{width:100%;min-width:0;}
+    .masthead{align-items:stretch;}
+    .fig-cap::before{content:"SWIPE \2192  ·  ";color:var(--copper);font-weight:600;}
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <!-- ================= HEADER ================= -->
+  <header>
+    <div class="doc-line">
+      <span>Hardware Management &middot; Technical Explainer</span>
+      <span class="std">Project: Metal&sup3; (CNCF ecosystem · Apache-2.0)</span>
+      <span>Deep Dive</span>
+    </div>
+    <div class="masthead">
+      <div>
+        <h1>METAL&sup3;<span class="amp">:</span> BARE METAL, THE KUBERNETES WAY</h1>
+        <p class="subtitle">"Metal Kubed." Physical servers become Kubernetes resources: <span class="mono">kubectl apply</span> a YAML file, and a real machine in a real rack powers on, wipes itself, and installs your image.</p>
+      </div>
+      <div class="spec-box" aria-label="Quick reference">
+        <div><span class="k">Pronounced</span><b>"metal cubed"</b></div>
+        <div><span class="k">Core resource</span><b>BareMetalHost (CRD)</b></div>
+        <div><span class="k">Engine underneath</span><b>OpenStack Ironic</b></div>
+        <div><span class="k">Cluster integration</span><b>Cluster API (CAPM3)</b></div>
+        <div><span class="k">Runs on</span><b>a Kubernetes mgmt cluster</b></div>
+        <div><span class="k">Talks to servers via</span><b>Redfish / IPMI → BMC</b></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= 1. WHAT ================= -->
+  <section id="what">
+    <div class="sec-head"><span class="sec-num">1</span><h2>What it is</h2></div>
+    <div class="two-col">
+      <div class="def-card api">
+        <div class="tag"><span>The interface</span><span>BMO + CRDs</span></div>
+        <div class="body">
+          <p class="one-liner">kubectl for physical servers.</p>
+          <p>Metal³'s heart is the <b>Baremetal Operator (BMO)</b>: a Kubernetes controller watching a <a class="gl" href="#g-crd">custom resource</a> called <b><a class="gl" href="#g-bmh">BareMetalHost</a></b>. Each YAML object represents one physical machine — its <a class="gl" href="#g-bmc">BMC</a> address, credentials, and the state you want it in.</p>
+          <p>Declare the desired state; the operator makes reality match. Hardware becomes GitOps-able: reviewed in pull requests, applied like any other manifest.</p>
+        </div>
+      </div>
+      <div class="def-card engine">
+        <div class="tag"><span>The engine</span><span>Ironic inside</span></div>
+        <div class="body">
+          <p class="one-liner">A veteran provisioner in a new suit.</p>
+          <p>Metal³ doesn't reimplement provisioning — it runs <b><a class="gl" href="#g-ironic">OpenStack Ironic</a></b> in pods and drives it. Ironic does the hard, decade-refined work: talking <a class="gl" href="#g-redfish">Redfish</a>/IPMI to BMCs, network- or <a class="gl" href="#g-vmedia">virtual-media</a>-booting a discovery agent (<a class="gl" href="#g-ipa">IPA</a>), wiping disks, writing images.</p>
+          <p>You never touch Ironic's API directly; the operator translates.</p>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:24px" class="lead">The relationship in one sentence: <b>BMO is the Kubernetes face, Ironic is the muscle, the BMC is the hands</b> — YAML in, provisioned metal out.</p>
+  </section>
+
+  <!-- ================= 2. THE JOB ================= -->
+  <section id="job">
+    <div class="sec-head"><span class="sec-num">2</span><h2>The job it solves: declarative metal</h2></div>
+    <p class="lead">Everything else in a Kubernetes shop is declarative — deployments, networks, DNS. Physical servers were the last holdout, managed by scripts and tickets. Metal³ closes that gap:</p>
+    <div class="scenarios">
+      <div><span class="q">New rack arrives</span><span class="a">Enroll 20 machines by applying 20 YAML files. Inspection auto-discovers their CPUs, RAM, disks, NICs.</span></div>
+      <div><span class="q">Cluster needs 5 more nodes</span><span class="a">Scale a MachineDeployment from 10 → 15. Real servers power on and join.</span></div>
+      <div><span class="q">Roll a new OS image</span><span class="a">Change one image URL in a template; machines rebuild in controlled batches.</span></div>
+      <div><span class="q">Node returned by a tenant</span><span class="a">Deprovisioning triggers automated disk wiping before the host re-enters the pool.</span></div>
+      <div><span class="q">Audit what you own</span><span class="a"><span class="mono">kubectl get bmh -A</span> — every machine, its state, and its hardware profile as data.</span></div>
+      <div><span class="q">Hardware config drift</span><span class="a">Firmware/BIOS settings declared in CRDs get reconciled like everything else.</span></div>
+    </div>
+    <h3>What the Baremetal Operator can do to a host</h3>
+    <ul class="pins">
+      <li><span class="pin">ENROLL</span>Register a machine from its BMC address + credentials (stored as a Kubernetes Secret).</li>
+      <li><span class="pin">INSPECT</span>Boot the IPA agent from a ramdisk to auto-discover CPUs, memory, disks, and NICs into the resource's status.</li>
+      <li><span class="pin">PREPARE</span>Apply RAID, BIOS, and firmware settings declaratively before provisioning.</li>
+      <li><span class="pin">PROVISION</span>Write any cloud-format image (qcow2 + cloud-init) to disk and boot it.</li>
+      <li><span class="pin">CLEAN</span>Wipe disks on deprovision so hosts return to the pool safe for the next user.</li>
+      <li><span class="pin">POWER</span>Reboot, power on/off — expressed as fields on the resource, not commands you run.</li>
+      <li><span class="pin">CLUSTER</span>Via <a class="gl" href="#g-capm3">CAPM3</a>, hand hosts to <a class="gl" href="#g-capi">Cluster API</a> so whole Kubernetes clusters rise from raw metal.</li>
+    </ul>
+    <div class="callout"><b>Scope check:</b> Metal³ manages the <i>machine lifecycle</i> — from raw metal to booted OS and back. It is not monitoring, not an inventory system of record, and not a general automation engine; it expects those to exist beside it.</div>
+  </section>
+
+  <!-- ================= 3. ARCHITECTURE ================= -->
+  <section id="arch">
+    <div class="sec-head"><span class="sec-num">3</span><h2>How it works — architecture</h2></div>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 980 640" role="img" aria-label="Architecture diagram: an operator applies BareMetalHost YAML to a management Kubernetes cluster containing the Cluster API and CAPM3 controllers, the Baremetal Operator, and Ironic pods. Ironic speaks Redfish or IPMI to the BMCs of target servers in a rack. One target server is shown booted into the Ironic Python Agent ramdisk, which inspects hardware and writes the OS image to disk.">
+        <!-- operator -->
+        <g class="blk"><rect x="40" y="40" width="230" height="88" fill="#E3EEE7" stroke="#0E5138" stroke-width="2"/>
+          <text x="56" y="66" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#0E5138" letter-spacing="1">YOU / GITOPS</text>
+          <text x="56" y="92" font-family="IBM Plex Mono" font-size="11.5" fill="#17191B">kubectl apply -f</text>
+          <text x="56" y="110" font-family="IBM Plex Mono" font-size="11.5" fill="#17191B">bmh-node-07.yaml</text></g>
+        <path d="M270 84 L330 84" stroke="#0E5138" stroke-width="2.2" fill="none"/>
+        <path d="M322 78 L332 84 L322 90 Z" fill="#0E5138"/>
+
+        <!-- management cluster -->
+        <rect x="330" y="30" width="610" height="330" fill="#FFFFFF" stroke="#17191B" stroke-width="2"/>
+        <text x="346" y="56" font-family="IBM Plex Mono" font-size="12" font-weight="600" fill="#17191B" letter-spacing="1">MANAGEMENT KUBERNETES CLUSTER</text>
+
+        <!-- CAPI layer -->
+        <g class="blk"><rect x="350" y="72" width="570" height="62" fill="#F2F4EF" stroke="#9A9C92" stroke-width="1.5" stroke-dasharray="6 4"/>
+          <text x="366" y="94" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#63665C" letter-spacing="1">OPTIONAL: CLUSTER API + CAPM3 — "make me a 10-node cluster"</text>
+          <text x="366" y="116" font-family="IBM Plex Mono" font-size="10" fill="#63665C">Machine / MachineDeployment → Metal3Machine → claims a BareMetalHost</text></g>
+
+        <!-- BMH CRs -->
+        <g class="blk"><rect x="350" y="158" width="250" height="120" fill="#E1EAF2" stroke="#1E4E79" stroke-width="2"/>
+          <text x="366" y="182" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#1E4E79" letter-spacing="1">BAREMETALHOST RESOURCES</text>
+          <text x="366" y="206" font-family="IBM Plex Mono" font-size="10.5" fill="#17191B">node-07 · provisioned</text>
+          <text x="366" y="226" font-family="IBM Plex Mono" font-size="10.5" fill="#17191B">node-08 · available</text>
+          <text x="366" y="246" font-family="IBM Plex Mono" font-size="10.5" fill="#17191B">node-09 · inspecting</text>
+          <text x="366" y="266" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">spec: desired · status: observed</text></g>
+
+        <!-- BMO -->
+        <g class="blk"><rect x="640" y="158" width="130" height="120" fill="#F4E4D3" stroke="#B0632F" stroke-width="2.2"/>
+          <text x="705" y="196" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="18" font-weight="700" fill="#B0632F">BMO</text>
+          <text x="705" y="218" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">Baremetal</text>
+          <text x="705" y="232" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">Operator</text>
+          <text x="705" y="256" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">reconciles spec→real</text></g>
+
+        <!-- Ironic -->
+        <g class="blk"><rect x="800" y="158" width="120" height="120" fill="#FFFFFF" stroke="#B0632F" stroke-width="2"/>
+          <text x="860" y="196" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="17" font-weight="700" fill="#17191B">IRONIC</text>
+          <text x="860" y="218" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">pods</text>
+          <text x="860" y="240" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">provisioning</text>
+          <text x="860" y="254" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">state machine</text></g>
+
+        <!-- arrows in cluster -->
+        <g stroke="#9A9C92" stroke-width="1.8" fill="none">
+          <path d="M475 134 L475 158"/>
+          <path d="M600 218 L640 218"/>
+          <path d="M770 218 L800 218"/>
+        </g>
+        <text x="606" y="210" font-family="IBM Plex Mono" font-size="9" fill="#63665C">watch</text>
+        <text x="774" y="210" font-family="IBM Plex Mono" font-size="9" fill="#63665C">drive</text>
+
+        <!-- image server note -->
+        <text x="350" y="330" font-family="IBM Plex Mono" font-size="10" fill="#63665C">also in-cluster: image cache/HTTP server · Metal3 IPAM (optional) · dnsmasq for iPXE (if network boot)</text>
+
+        <!-- redfish arrow down -->
+        <path d="M860 278 L860 420 L740 420 L740 452" stroke="#0E5138" stroke-width="2.6" fill="none"/>
+        <text x="868" y="380" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#0E5138">REDFISH / IPMI</text>
+        <text x="868" y="396" font-family="IBM Plex Mono" font-size="10" fill="#63665C">to each server's BMC</text>
+
+        <!-- rack -->
+        <rect x="40" y="452" width="900" height="150" fill="#FFFFFF" stroke="#17191B" stroke-width="2"/>
+        <text x="56" y="478" font-family="IBM Plex Mono" font-size="12" font-weight="600" fill="#17191B" letter-spacing="1">TARGET SERVERS (THE RACK)</text>
+
+        <g class="blk"><rect x="70" y="494" width="240" height="90" fill="#FFF8EF" stroke="#B0632F" stroke-width="2"/>
+          <text x="86" y="518" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#B0632F">node-09 · BEING PROVISIONED</text>
+          <text x="86" y="540" font-family="IBM Plex Mono" font-size="10" fill="#17191B">booted into IPA ramdisk agent:</text>
+          <text x="86" y="558" font-family="IBM Plex Mono" font-size="10" fill="#63665C">inspects hw · wipes disk · writes qcow2</text>
+          <text x="86" y="576" font-family="IBM Plex Mono" font-size="10" fill="#63665C">BMC ← virtual media or iPXE boot</text></g>
+        <g class="blk"><rect x="340" y="494" width="180" height="90" fill="#F2F4EF" stroke="#9A9C92" stroke-width="1.6"/>
+          <text x="430" y="534" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#17191B">node-07</text>
+          <text x="430" y="554" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#0E5138">provisioned · in cluster</text></g>
+        <g class="blk"><rect x="550" y="494" width="180" height="90" fill="#F2F4EF" stroke="#9A9C92" stroke-width="1.6"/>
+          <text x="640" y="534" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#17191B">node-08</text>
+          <text x="640" y="554" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">available · in pool</text></g>
+        <g class="blk"><rect x="760" y="494" width="150" height="90" fill="#F2F4EF" stroke="#9A9C92" stroke-width="1.6"/>
+          <text x="835" y="534" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#17191B">node-10 …</text>
+          <text x="835" y="554" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">registering</text></g>
+      </svg>
+      <div class="fig-cap">FIG. 3-1 — YAML in, metal out. BMO watches BareMetalHost resources and drives Ironic; Ironic speaks Redfish/IPMI to each server's BMC, boots the IPA agent, and writes the image. The Cluster API layer on top is optional.</div>
+    </div>
+  </section>
+
+  <!-- ================= 4. HANDS-ON ================= -->
+  <section id="handson">
+    <div class="sec-head"><span class="sec-num">4</span><h2>Hands-on: the YAML that moves metal</h2></div>
+    <div class="tabs" role="tablist" aria-label="Metal3 examples">
+      <button role="tab" aria-selected="true" data-tab="t1">ENROLL</button>
+      <button role="tab" aria-selected="false" data-tab="t2">INSPECT</button>
+      <button role="tab" aria-selected="false" data-tab="t3">PROVISION</button>
+      <button role="tab" aria-selected="false" data-tab="t4">CLUSTER (CAPI)</button>
+    </div>
+    <div class="tabpanel">
+      <div id="t1" role="tabpanel">
+<pre><span class="cm2"># One physical machine = one resource (+ its BMC secret)</span>
+<span class="key">apiVersion</span>: metal3.io/v1alpha1
+<span class="key">kind</span>: BareMetalHost
+<span class="key">metadata</span>: { <span class="key">name</span>: <span class="str">node-07</span> }
+<span class="key">spec</span>:
+  <span class="key">online</span>: true
+  <span class="key">bmc</span>:
+    <span class="key">address</span>: <span class="str">redfish-virtualmedia://10.99.4.107/redfish/v1/Systems/1</span>
+    <span class="key">credentialsName</span>: <span class="str">node-07-bmc-secret</span>
+  <span class="key">bootMACAddress</span>: <span class="str">"a0:36:9f:12:34:56"</span></pre>
+        <div class="note">The <span class="mono">bmc.address</span> scheme picks the driver — <span class="mono">redfish-virtualmedia://</span> boots the agent via the BMC with no DHCP infrastructure needed. Credentials live in a normal Kubernetes Secret.</div>
+      </div>
+      <div id="t2" role="tabpanel" hidden>
+<pre><span class="cm2"># After enrollment, inspection fills status automatically</span>
+$ kubectl get bmh node-07 -o yaml
+<span class="key">status</span>:
+  <span class="key">provisioning</span>: { <span class="key">state</span>: <span class="str">available</span> }
+  <span class="key">hardware</span>:
+    <span class="key">cpu</span>:     { <span class="key">count</span>: 64, <span class="key">arch</span>: <span class="str">x86_64</span> }
+    <span class="key">ramMebibytes</span>: 524288
+    <span class="key">storage</span>: [ { <span class="key">name</span>: <span class="str">/dev/nvme0n1</span>, <span class="key">sizeBytes</span>: 3840755982336 } ]
+    <span class="key">nics</span>:    [ { <span class="key">mac</span>: <span class="str">a0:36:9f:12:34:56</span>, <span class="key">model</span>: <span class="str">...</span> } ]</pre>
+        <div class="note">You never typed any of this — the IPA agent booted on the real machine, looked around, and reported back. Your hardware inventory is now <span class="mono">kubectl</span>-queryable.</div>
+      </div>
+      <div id="t3" role="tabpanel" hidden>
+<pre><span class="cm2"># Point the host at an image; the operator does the rest</span>
+<span class="key">spec</span>:
+  <span class="key">image</span>:
+    <span class="key">url</span>:      <span class="str">http://images.local/ubuntu-24.04.qcow2</span>
+    <span class="key">checksum</span>: <span class="str">http://images.local/ubuntu-24.04.qcow2.sha256</span>
+  <span class="key">userData</span>: { <span class="key">name</span>: <span class="str">node-07-cloud-init</span> }  <span class="cm2"># first-boot config</span>
+
+<span class="cm2"># watch it happen:</span>
+$ kubectl get bmh -w
+node-07   provisioning   ...
+node-07   provisioned    ✓</pre>
+        <div class="note">Any cloud-format image works (qcow2 + cloud-init for first boot). Remove <span class="mono">spec.image</span> and the host deprovisions — wiping disks on the way back to the pool.</div>
+      </div>
+      <div id="t4" role="tabpanel" hidden>
+<pre><span class="cm2"># One level up: whole clusters via Cluster API + CAPM3</span>
+<span class="key">kind</span>: MachineDeployment          <span class="cm2"># like a Deployment, for machines</span>
+<span class="key">spec</span>:
+  <span class="key">replicas</span>: 10
+  <span class="key">strategy</span>:
+    <span class="key">rollingUpdate</span>: { <span class="key">maxSurge</span>: 1, <span class="key">maxUnavailable</span>: 0 }
+  <span class="key">template</span>:
+    <span class="key">spec</span>:
+      <span class="key">infrastructureRef</span>: { <span class="key">kind</span>: <span class="str">Metal3MachineTemplate</span>, ... }</pre>
+        <div class="note">Change the template's image and machines rebuild one at a time — a rolling, gate-able rollout across physical hardware. Keep a small separate MachineDeployment as your canary pool: new images go there first.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 5. STATE MACHINE ================= -->
+  <section id="states">
+    <div class="sec-head"><span class="sec-num">5</span><h2>The BareMetalHost lifecycle</h2></div>
+    <p>Every host walks a strict state machine — the operator's whole job is moving hosts along it (and back):</p>
+    <div class="states">
+      <div class="state"><span class="n">S1</span><span class="s">REGISTERING</span><span class="d">validating BMC address + credentials</span></div>
+      <div class="state"><span class="n">S2</span><span class="s">INSPECTING</span><span class="d">IPA ramdisk boots, auto-discovers hardware</span></div>
+      <div class="state"><span class="n">S3</span><span class="s">PREPARING</span><span class="d">RAID / BIOS / firmware settings applied</span></div>
+      <div class="state"><span class="n">S4</span><span class="s">AVAILABLE</span><span class="d">in the pool, ready to claim</span></div>
+      <div class="state"><span class="n">S5</span><span class="s">PROVISIONING</span><span class="d">image written to disk</span></div>
+      <div class="state"><span class="n">S6</span><span class="s">PROVISIONED</span><span class="d">running your OS; deprovision → clean → back to S4</span></div>
+    </div>
+    <p style="margin-top:12px">There's also an <span class="mono">externallyProvisioned</span> escape hatch for machines that were set up by other means but should still be tracked and power-managed here.</p>
+  </section>
+
+  <!-- ================= 6. ALTERNATIVES ================= -->
+  <section id="alternatives">
+    <div class="sec-head"><span class="sec-num">6</span><h2>Alternatives — the honest comparison</h2></div>
+    <p class="lead">Metal³ is one of several serious bare-metal provisioners. It wins when Kubernetes is your control plane; it's overkill or awkward when it isn't:</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Option</th><th>What it is</th><th>Strengths</th><th>Tradeoffs</th></tr></thead>
+      <tbody>
+        <tr><td>Metal³<span class="m">metal3.io</span></td><td>K8s operator wrapping Ironic; hosts as CRDs; Cluster API integration</td><td>GitOps-native; declarative; clusters-from-metal via CAPI; battle-tested Ironic core</td><td>Requires a management K8s cluster first (bootstrap chicken-and-egg); Ironic's complexity is hidden, not gone</td></tr>
+        <tr><td>Ironic standalone<span class="m">+ Bifrost installer</span></td><td>The same engine, no Kubernetes — REST API + its own database</td><td>No K8s dependency; full Ironic feature surface; scriptable from anything</td><td>Imperative REST, not declarative; you build the workflow layer yourself</td></tr>
+        <tr><td>MAAS<span class="m">Canonical</span></td><td>"Metal as a Service" — full-featured provisioner with polished web UI, DHCP/DNS/IPAM built in</td><td>Fastest path to a working bare-metal cloud; great UI; strong Ubuntu story</td><td>Its own world (not K8s-native); Canonical-centric; less natural fit for GitOps workflows</td></tr>
+        <tr><td>Tinkerbell<span class="m">CNCF sandbox lineage</span></td><td>Microservices provisioning engine (originally Equinix Metal); workflows as templated actions</td><td>Very flexible workflow model; container-native; no Ironic baggage</td><td>You assemble more yourself; smaller ecosystem than Ironic's decade of hardware drivers</td></tr>
+        <tr><td>Foreman<span class="m">+ plugins</span></td><td>Veteran lifecycle manager (PXE, kickstart, config mgmt integration)</td><td>Mature, huge install base, strong OS-config integration (Puppet/Ansible)</td><td>Pre-cloud-native design; heavier to operate; weak K8s story</td></tr>
+        <tr><td>DIY: Ansible + Redfish<span class="m">playbooks straight at BMCs</span></td><td>No provisioner at all — scripts drive power, virtual media, and images directly</td><td>Zero new infrastructure; total control; fine for small static fleets</td><td>No state machine, no cleaning guarantees, no pool concept — you reinvent all three at scale</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <ul class="pins" style="margin-top:20px">
+      <li><span class="pin">PICK METAL³</span>Kubernetes is (or will be) your control plane, you want GitOps for hardware, or you're building clusters-on-demand from a pool.</li>
+      <li><span class="pin">PICK IRONIC/BIFROST</span>You want Ironic's power without running Kubernetes to get it — e.g. a control plane written in-house calling a REST API.</li>
+      <li><span class="pin">PICK MAAS</span>You want a working bare-metal cloud this week, with a UI humans enjoy, and Ubuntu is home turf.</li>
+      <li><span class="pin">PICK TINKERBELL</span>You want maximal workflow flexibility and are comfortable assembling the pieces.</li>
+      <li><span class="pin">PICK DIY</span>Fleet under ~20 boxes, reimaged rarely — a provisioner would outweigh the problem.</li>
+    </ul>
+  </section>
+
+  <!-- ================= 7. APPLICATIONS ================= -->
+  <section id="apps">
+    <div class="sec-head"><span class="sec-num">7</span><h2>Where it's used</h2></div>
+    <div class="apps">
+      <div class="app" data-ref="APP-01">
+        <h3>Kubernetes clusters from raw metal</h3>
+        <p>The flagship: Cluster API + CAPM3 turn "give me a 12-node cluster" into powered, imaged, joined machines — no cloud provider in sight.</p>
+        <p class="tools">CAPI · CAPM3 · Metal3MachineTemplate</p>
+      </div>
+      <div class="app" data-ref="APP-02">
+        <h3>Bare-metal cloud pools</h3>
+        <p>Keep a pool of cleaned, inspected hosts in <span class="mono">available</span>; a control plane claims them per customer and returns them wiped — cattle economics on physical cattle.</p>
+        <p class="tools">BareMetalHost pool · automated cleaning</p>
+      </div>
+      <div class="app" data-ref="APP-03">
+        <h3>Telco &amp; edge fleets</h3>
+        <p>Metal³'s biggest production niche: hundreds of small sites managed declaratively from central clusters. Red Hat OpenShift's bare-metal installer is built on it.</p>
+        <p class="tools">OpenShift IPI · centralized mgmt clusters</p>
+      </div>
+      <div class="app" data-ref="APP-04">
+        <h3>Controlled image rollouts</h3>
+        <p>MachineDeployment rolling updates rebuild machines in batches with surge/unavailability limits — canary a new OS image on one pool before the fleet.</p>
+        <p class="tools">rollingUpdate · canary MachineDeployments</p>
+      </div>
+      <div class="app" data-ref="APP-05">
+        <h3>Declarative firmware &amp; BIOS</h3>
+        <p>Host firmware settings and updates expressed as resources and reconciled — hardware configuration drift handled like config drift.</p>
+        <p class="tools">HostFirmwareSettings · HostFirmwareComponents</p>
+      </div>
+      <div class="app" data-ref="APP-06">
+        <h3>GitOps for hardware</h3>
+        <p>BareMetalHost manifests in git, applied by CI: rack changes get pull requests, reviews, and rollbacks — an audit trail for physical infrastructure.</p>
+        <p class="tools">Argo CD / Flux · plain YAML</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 8. GOTCHAS ================= -->
+  <section id="know">
+    <div class="sec-head"><span class="sec-num">8</span><h2>Things worth knowing before you adopt it</h2></div>
+    <ul class="gotchas">
+      <li><b>The bootstrap chicken-and-egg is real.</b> Metal³ runs <i>on</i> Kubernetes to provision the machines Kubernetes runs on. Standard answer: boot a temporary cluster (kind on a laptop, or one hand-installed node), provision the real management cluster, then <span class="mono">clusterctl move</span> ("pivot") the resources into it.</li>
+      <li><b>Choose your boot path early: virtual media vs iPXE.</b> Drivers like <span class="mono">redfish-virtualmedia://</span> boot the agent through the BMC — no DHCP servers to run, works across routed networks. iPXE-based drivers need DHCP/TFTP infrastructure on a provisioning network. Virtual media is the simpler operational story if your BMCs support it well.</li>
+      <li><b>BMC credentials become Kubernetes Secrets.</b> Whoever can read those Secrets owns your hardware. Lock down RBAC on the namespace, and treat the management cluster itself as crown-jewel infrastructure.</li>
+      <li><b>Cleaning and inspection take real minutes.</b> Every pool return means a reboot into the agent and a disk wipe; full-disk erasure on big NVMe can be slow. Budget for it in capacity planning — it's a security boundary between tenants, not a step to skip.</li>
+      <li><b>Homogeneous architectures only.</b> x86_64 and ARM64 are both supported, but not mixed within one setup — plan fleets accordingly.</li>
+      <li><b>Images must be cloud-style.</b> Provisioning writes a cloud-format image (e.g. qcow2) and hands first-boot config via cloud-init — golden-image workflows, not interactive installers.</li>
+      <li><b>Ironic is hidden, not gone.</b> When provisioning fails at 3 AM, the logs you'll read are Ironic's. Budget learning time for its concepts (drivers, boot interfaces, cleaning steps) even though you interact through CRDs.</li>
+    </ul>
+  </section>
+
+  <!-- ================= 9. LAB ================= -->
+  <section id="lab">
+    <div class="sec-head"><span class="sec-num">9</span><h2>Run it yourself</h2></div>
+    <div class="lab">
+      <div class="lab-head"><h3>LAB A — Touch the API (no hardware, 15 min)</h3><span class="meta">needs Docker + kubectl + kind</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li>
+            <p><b>Boot a throwaway Kubernetes cluster</b> with <a class="x" href="https://kind.sigs.k8s.io" target="_blank" rel="noopener">kind</a> (Kubernetes-in-Docker):</p>
+            <pre>kind create cluster --name metal3-lab</pre>
+          </li>
+          <li>
+            <p><b>Install the BareMetalHost resource definitions</b> straight from the Baremetal Operator repo:</p>
+            <pre>kubectl apply -k "github.com/metal3-io/baremetal-operator/config/crd?ref=main"</pre>
+            <p class="expect">EXPECT: baremetalhosts.metal3.io (and friends) created.</p>
+          </li>
+          <li>
+            <p><b>Explore the shape of a physical server as an API object:</b></p>
+            <pre>kubectl explain baremetalhost.spec
+kubectl explain baremetalhost.spec.bmc
+kubectl explain baremetalhost.status.hardware</pre>
+            <p class="expect">EXPECT: the full schema — bmc.address, image.url, online, hardware inventory fields — documented like any built-in resource.</p>
+            <p style="font-size:13.5px;color:var(--dim)">No operator is running, so nothing reconciles — but you now know exactly what Metal³'s contract looks like, which is most of the mental model.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+    <div class="lab">
+      <div class="lab-head"><h3>LAB B — A simulated datacenter (the real thing, fake metal)</h3><span class="meta">~1–2 h · a Linux box with 16GB+ RAM &amp; nested virt</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li>
+            <p><b>Run metal3-dev-env</b> — the project's own environment that creates libvirt VMs posing as bare-metal servers, complete with <b>emulated Redfish BMCs</b> (via sushy-tools), then installs the full stack against them:</p>
+            <pre>git clone https://github.com/metal3-io/metal3-dev-env.git
+cd metal3-dev-env
+make   <span class="cm2"># provisions host deps, VMs, and the Metal3 stack</span></pre>
+            <p style="font-size:13.5px;color:var(--dim)">Details and host requirements in the <a class="x" href="https://github.com/metal3-io/metal3-dev-env" target="_blank" rel="noopener">metal3-dev-env README</a> and the <a class="x" href="https://book.metal3.io" target="_blank" rel="noopener">Metal³ user guide</a>.</p>
+          </li>
+          <li>
+            <p><b>Watch a "machine" get provisioned end to end:</b></p>
+            <pre>kubectl get bmh -n metal3 -w</pre>
+            <p class="expect">EXPECT: hosts marching registering → inspecting → available — the Section 5 state machine, live — then provision one and watch a VM you can log into appear.</p>
+          </li>
+          <li><p><b>Break something on purpose.</b> Give a host wrong BMC credentials and watch the error surface in <span class="mono">status</span>; fix the Secret and watch it recover. Declarative reconciliation, felt directly.</p></li>
+        </ol>
+      </div>
+    </div>
+    <div class="lab">
+      <div class="lab-head"><h3>LAB C — Real metal</h3><span class="meta">optional · one server with a Redfish-capable BMC</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li><p><b>Point a BareMetalHost at a real machine:</b> its BMC's <span class="mono">redfish-virtualmedia://</span> address, credentials in a Secret (change the BMC's default password first — non-negotiable), and a qcow2 image on a local HTTP server. The YAML is identical to Lab B's; only the address is real. Isolate BMCs on a management network the cluster can reach, and keep them off the internet.</p></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 10. GLOSSARY + READING ================= -->
+  <section id="glossary">
+    <div class="sec-head"><span class="sec-num">10</span><h2>Glossary &amp; further reading</h2></div>
+    <div class="glossary">
+      <dl>
+        <div class="entry" id="g-bmc"><dt>BMC</dt><dd>Baseboard Management Controller — a small always-on computer on every server motherboard that can power, monitor, and reimage the host independently of its OS, even when the server is "off."</dd></div>
+        <div class="entry" id="g-redfish"><dt>Redfish</dt><dd>The DMTF-standard HTTPS/JSON API that BMCs expose — one vendor-neutral way to command any server's hardware. <a class="x" href="https://www.dmtf.org/standards/redfish" target="_blank" rel="noopener">dmtf.org</a></dd></div>
+        <div class="entry" id="g-ironic"><dt>Ironic</dt><dd>OpenStack's bare-metal provisioning engine — a decade-refined state machine for booting, imaging, and cleaning physical servers. Metal³ runs it in pods and drives it. <a class="x" href="https://docs.openstack.org/ironic/latest/" target="_blank" rel="noopener">docs</a></dd></div>
+        <div class="entry" id="g-ipa"><dt>IPA — Ironic Python Agent</dt><dd>A small ramdisk OS the target machine boots into during inspection and provisioning; it examines hardware, wipes disks, and writes images, reporting back to Ironic.</dd></div>
+        <div class="entry" id="g-crd"><dt>CRD / custom resource</dt><dd>Kubernetes' extension mechanism: define a new object type (like BareMetalHost) and it becomes a first-class API citizen with kubectl support.</dd></div>
+        <div class="entry" id="g-operator"><dt>Operator</dt><dd>A controller that watches custom resources and continuously reconciles reality to match their declared spec — the pattern BMO implements for servers.</dd></div>
+        <div class="entry" id="g-bmh"><dt>BareMetalHost (BMH)</dt><dd>Metal³'s core resource: one object per physical machine, with desired state in <span class="mono">spec</span> and observed reality (including discovered hardware) in <span class="mono">status</span>.</dd></div>
+      </dl>
+      <dl>
+        <div class="entry" id="g-capi"><dt>Cluster API (CAPI)</dt><dd>Kubernetes' framework for managing whole clusters as resources — Machines, MachineDeployments — with pluggable infrastructure providers. <a class="x" href="https://cluster-api.sigs.k8s.io" target="_blank" rel="noopener">book</a></dd></div>
+        <div class="entry" id="g-capm3"><dt>CAPM3</dt><dd>The Cluster API Provider for Metal3 — the plugin that lets Cluster API claim BareMetalHosts, adding resources like Metal3Cluster and Metal3MachineTemplate.</dd></div>
+        <div class="entry" id="g-vmedia"><dt>Virtual media</dt><dd>A BMC feature that presents a remote ISO to the server as if it were a plugged-in USB drive — how Metal³ can boot its agent with zero DHCP infrastructure.</dd></div>
+        <div class="entry" id="g-ipxe"><dt>iPXE</dt><dd>Network booting: the machine's NIC fetches a boot image over the network. The alternative agent-boot path, requiring DHCP/TFTP on a provisioning network.</dd></div>
+        <div class="entry" id="g-cleaning"><dt>Cleaning</dt><dd>Automated disk erasure (and config reset) when a host is deprovisioned — the security boundary that makes pooled, multi-tenant metal safe.</dd></div>
+        <div class="entry" id="g-pivot"><dt>Pivot (clusterctl move)</dt><dd>Migrating Cluster API + Metal³ resources from a temporary bootstrap cluster into the permanent management cluster it just provisioned — the answer to the chicken-and-egg.</dd></div>
+        <div class="entry" id="g-mgmt"><dt>Management cluster</dt><dd>The small Kubernetes cluster where BMO, Ironic, and CAPI run — the brain that provisions and manages all other machines and clusters.</dd></div>
+      </dl>
+    </div>
+
+    <h3 style="margin-top:36px;border-top:1.5px solid var(--ink);padding-top:18px">Further reading — where to go deeper</h3>
+    <ul class="reading">
+      <li><a class="x" href="https://book.metal3.io" target="_blank" rel="noopener">The Metal³ user guide ("the book")</a><span class="why">The canonical end-to-end documentation — project overview, component roles, install paths, and version support policy.</span></li>
+      <li><a class="x" href="https://metal3.io/faqs.html" target="_blank" rel="noopener">Metal³ FAQ</a><span class="why">Short, honest answers to exactly the questions you'll have first: what needs Ironic, when CAPI is optional, which boot drivers need what.</span></li>
+      <li><a class="x" href="https://github.com/metal3-io/baremetal-operator" target="_blank" rel="noopener">baremetal-operator repo</a><span class="why">The source of truth for the BareMetalHost API — including docs/baremetalhost-states.md, the full state-machine reference behind Section 5.</span></li>
+      <li><a class="x" href="https://github.com/metal3-io/metal3-dev-env" target="_blank" rel="noopener">metal3-dev-env</a><span class="why">Lab B's simulated datacenter — the fastest way to watch the whole stack work without owning a rack.</span></li>
+      <li><a class="x" href="https://cluster-api.sigs.k8s.io" target="_blank" rel="noopener">The Cluster API book</a><span class="why">Where MachineDeployments, rolling updates, and clusterctl live — required reading before using Metal³ for cluster lifecycle.</span></li>
+      <li><a class="x" href="https://docs.openstack.org/ironic/latest/" target="_blank" rel="noopener">Ironic documentation</a><span class="why">For the 3 AM failure: drivers, boot interfaces, and cleaning steps explained by the engine's own docs.</span></li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>SOURCES: metal3.io · book.metal3.io · github.com/metal3-io · docs.openstack.org/ironic · cluster-api.sigs.k8s.io</span>
+    <span>METAL&sup3; — DEEP DIVE</span>
+  </footer>
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.tabs [role="tab"]');
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(b => b.setAttribute('aria-selected', b === btn ? 'true' : 'false'));
+      document.querySelectorAll('.tabpanel [role="tabpanel"]').forEach(p => {
+        p.hidden = (p.id !== btn.dataset.tab);
+      });
+    });
+  });
+
+  // ---- Glossary popover: hover (desktop) / tap (mobile) ----
+  (function(){
+    const pop = document.createElement('div');
+    pop.id = 'glpop';
+    document.body.appendChild(pop);
+    let pinned = false;
+
+    function fill(link){
+      const id = (link.getAttribute('href')||'').slice(1);
+      const entry = document.getElementById(id);
+      if(!entry) return false;
+      const dt = entry.querySelector('dt');
+      const dd = entry.querySelector('dd');
+      if(!dt || !dd) return false;
+      const ext = dd.querySelector('a');
+      const def = dd.cloneNode(true);
+      def.querySelectorAll('a').forEach(a => a.remove());
+      pop.innerHTML =
+        '<span class="t">' + dt.textContent + '</span>' + def.innerHTML +
+        '<div class="links">' +
+        (ext ? '<a href="' + ext.href + '" target="_blank" rel="noopener">Dive deeper \u2197</a>' : '') +
+        '<a href="#' + id + '" class="jump">Full glossary \u2193</a></div>';
+      return true;
+    }
+    function show(link){
+      if(!fill(link)) return;
+      const r = link.getBoundingClientRect();
+      pop.style.display = 'block';
+      const pw = Math.min(300, window.innerWidth - 24);
+      pop.style.maxWidth = pw + 'px';
+      let x = window.scrollX + r.left;
+      const maxX = window.scrollX + window.innerWidth - pop.offsetWidth - 12;
+      if(x > maxX) x = Math.max(window.scrollX + 12, maxX);
+      pop.style.left = x + 'px';
+      pop.style.top = (window.scrollY + r.bottom + 8) + 'px';
+    }
+    function hide(){ pop.style.display = 'none'; pinned = false; }
+
+    document.querySelectorAll('a.gl').forEach(link => {
+      link.addEventListener('mouseenter', () => { if(!pinned) show(link); });
+      link.addEventListener('mouseleave', () => {
+        setTimeout(() => { if(!pinned && !pop.matches(':hover')) hide(); }, 120);
+      });
+      link.addEventListener('click', (e) => { e.preventDefault(); pinned = true; show(link); });
+    });
+    pop.addEventListener('mouseleave', () => { if(!pinned) hide(); });
+    pop.addEventListener('click', (e) => { if(e.target.classList.contains('jump')) hide(); });
+    document.addEventListener('click', (e) => {
+      if(pinned && !pop.contains(e.target) && !e.target.closest('a.gl')) hide(); });
+    window.addEventListener('scroll', () => { if(!pinned) hide(); }, {passive:true});
+  })();
+</script>
+</body>
+</html>

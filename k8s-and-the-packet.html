@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K8s &amp; the Packet — Technical Explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAFAF6;
+    --ink:#17191B;
+    --copper:#B0632F;
+    --copper-soft:#F4E4D3;
+    --solder:#0E5138;
+    --solder-soft:#E3EEE7;
+    --blue:#1E4E79;
+    --blue-soft:#E1EAF2;
+    --rule:#D8D8CE;
+    --rule-dark:#9A9C92;
+    --dim:#63665C;
+    --code-bg:#1E211F;
+    --code-ink:#E8EAE2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+  }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans',system-ui,sans-serif;
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .sheet{max-width:1080px;margin:0 auto;padding:0 28px 80px;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  h1,h2,h3{font-family:'IBM Plex Sans Condensed',sans-serif;line-height:1.12;}
+
+  a.x{color:var(--copper);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;text-decoration-color:#D9B08C;}
+  a.x:hover{text-decoration-color:var(--copper);}
+  a.x::after{content:"\2197";font-size:.72em;vertical-align:super;margin-left:1px;}
+  a.gl{color:inherit;text-decoration:underline dotted 1.5px var(--rule-dark);text-underline-offset:3px;}
+  a.gl:hover{text-decoration-color:var(--copper);color:var(--copper);}
+  a:focus-visible{outline:2px solid var(--copper);outline-offset:2px;}
+
+  a.gl{cursor:help;}
+  #glpop{position:absolute;z-index:50;max-width:300px;background:var(--ink);color:var(--paper);padding:12px 14px;font-size:13.5px;line-height:1.55;border:1.5px solid var(--copper);box-shadow:4px 4px 0 rgba(23,25,27,.18);display:none;}
+  #glpop .t{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#E8B380;display:block;margin-bottom:4px;letter-spacing:.05em;text-transform:uppercase;}
+  #glpop .links{margin-top:9px;display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;font-family:'IBM Plex Mono',monospace;}
+  #glpop a{color:#E8B380;font-weight:600;text-decoration:underline;text-underline-offset:2px;}
+  #glpop .mono{color:#D9C87C;}
+
+  header{border-bottom:3px solid var(--ink);padding:26px 0 22px;}
+  .doc-line{
+    display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--dim);
+    border-bottom:1px solid var(--rule);padding-bottom:12px;margin-bottom:24px;
+  }
+  .doc-line .std{color:var(--copper);font-weight:600;}
+  .masthead{display:flex;gap:32px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;}
+  h1{font-size:clamp(38px,6vw,62px);font-weight:700;letter-spacing:-.01em;}
+  h1 .amp{color:var(--copper);}
+  .subtitle{max-width:560px;margin-top:12px;font-size:17px;color:#2E312B;}
+  .spec-box{border:1.5px solid var(--ink);min-width:250px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  .spec-box div{display:flex;justify-content:space-between;gap:18px;padding:7px 12px;border-bottom:1px solid var(--rule);}
+  .spec-box div:last-child{border-bottom:0;}
+  .spec-box b{font-weight:600;}
+  .spec-box .k{color:var(--dim);}
+
+  section{padding:52px 0 8px;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1.5px solid var(--ink);padding-bottom:10px;margin-bottom:28px;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--paper);background:var(--ink);padding:3px 9px;}
+  h2{font-size:clamp(24px,3.4vw,32px);font-weight:700;}
+  h3{font-size:18px;font-weight:600;margin-bottom:8px;}
+  p{margin-bottom:14px;max-width:74ch;}
+  .lead{font-size:17.5px;}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+  @media(max-width:760px){.two-col{grid-template-columns:1fr;}}
+
+  .def-card{border:1.5px solid var(--ink);}
+  .def-card .tag{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;border-bottom:1.5px solid var(--ink);display:flex;justify-content:space-between;}
+  .def-card.hw .tag{background:var(--solder-soft);color:var(--solder);}
+  .def-card.sw .tag{background:var(--copper-soft);color:var(--copper);}
+  .def-card .body{padding:16px 18px 6px;}
+  .def-card .one-liner{font-family:'IBM Plex Sans Condensed';font-size:21px;font-weight:600;margin-bottom:10px;}
+
+  .pins{list-style:none;margin:6px 0 16px;}
+  .pins li{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--rule);font-size:15px;max-width:74ch;}
+  .pins li:last-child{border-bottom:0;}
+  .pins .pin{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--copper);white-space:nowrap;min-width:86px;letter-spacing:.04em;}
+
+  .scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0;border:1.5px solid var(--ink);margin:20px 0 22px;}
+  .scenarios div{padding:14px 16px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);}
+  .scenarios .q{font-family:'IBM Plex Sans Condensed';font-weight:600;font-size:16.5px;display:block;margin-bottom:4px;}
+  .scenarios .a{font-size:13.5px;color:var(--dim);}
+  .callout{border-left:4px solid var(--copper);background:var(--copper-soft);padding:14px 18px;margin:18px 0;max-width:78ch;font-size:15.5px;}
+  .callout.green{border-left-color:var(--solder);background:var(--solder-soft);}
+  .callout b{font-weight:600;}
+
+  .diagram-wrap{border:1.5px solid var(--ink);background:#fff;padding:10px 6px 2px;overflow-x:auto;}
+  .diagram-wrap svg{display:block;min-width:720px;width:100%;height:auto;}
+  .fig-cap{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);padding:10px 4px 2px;border-top:1px solid var(--rule);margin-top:8px;}
+  .legend{display:flex;gap:22px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--dim);padding:10px 4px 12px;}
+  .legend span{display:inline-flex;align-items:center;gap:7px;}
+  .swatch{width:22px;height:12px;display:inline-block;border:1px solid var(--rule-dark);}
+  .blk{transition:filter .15s ease;}
+  .blk:hover{filter:brightness(0.96);}
+
+  .tabs{display:flex;gap:0;border:1.5px solid var(--ink);border-bottom:0;flex-wrap:wrap;}
+  .tabs button{font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.03em;padding:10px 16px;background:var(--paper);border:0;border-right:1px solid var(--rule);cursor:pointer;color:var(--dim);}
+  .tabs button:focus-visible{outline:2px solid var(--copper);outline-offset:-2px;}
+  .tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper);}
+  .tabpanel{border:1.5px solid var(--ink);}
+  .tabpanel pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.8px;line-height:1.7;padding:18px 20px;overflow-x:auto;margin:0;}
+  .tabpanel .note{padding:12px 16px;font-size:14px;border-top:1.5px solid var(--ink);background:#fff;}
+  .verb{color:#E8B380;font-weight:600;}
+  .key{color:#8FBF9F;}
+  .str{color:#D9C87C;}
+  .cm2{color:#7B7F76;}
+
+  table{width:100%;border-collapse:collapse;border:1.5px solid var(--ink);font-size:14.5px;}
+  thead th{background:var(--ink);color:var(--paper);text-align:left;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:10px 14px;font-weight:600;}
+  tbody td{padding:11px 14px;border-bottom:1px solid var(--rule);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody td:first-child{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;}
+  td.win{color:var(--solder);font-weight:500;}
+  .table-scroll{overflow-x:auto;}
+
+  .apps{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px;}
+  .app{border:1.5px solid var(--ink);padding:18px 20px 14px;background:#fff;position:relative;}
+  .app::before{content:attr(data-ref);position:absolute;top:14px;right:16px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--rule-dark);letter-spacing:.06em;}
+  .app h3{font-size:19px;}
+  .app p{font-size:14.5px;margin-bottom:8px;}
+  .app .tools{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--copper);letter-spacing:.02em;}
+
+  .eco{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;}
+  .eco-col{border-top:3px solid var(--ink);padding-top:12px;}
+  .eco-col h3{font-size:16px;text-transform:uppercase;letter-spacing:.04em;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--dim);}
+  .eco-col ul{list-style:none;margin-top:8px;}
+  .eco-col li{padding:7px 0;border-bottom:1px dashed var(--rule);font-size:14.5px;}
+  .eco-col li b{font-weight:600;}
+  .eco-col li span{display:block;font-size:12.5px;color:var(--dim);}
+
+  .gotchas{counter-reset:g;max-width:78ch;}
+  .gotchas li{list-style:none;padding:14px 0 14px 52px;position:relative;border-bottom:1px solid var(--rule);}
+  .gotchas li::before{counter-increment:g;content:counter(g,decimal-leading-zero);position:absolute;left:0;top:16px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);}
+  .gotchas b{font-weight:600;}
+
+  .lab{border:1.5px solid var(--ink);background:#fff;margin-bottom:26px;}
+  .lab-head{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:baseline;padding:12px 18px;border-bottom:1.5px solid var(--ink);background:var(--solder-soft);}
+  .lab-head h3{font-size:20px;margin:0;color:var(--solder);}
+  .lab-head .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);}
+  .lab-body{padding:16px 18px 6px;}
+  .steps{list-style:none;counter-reset:s;}
+  .steps > li{counter-increment:s;position:relative;padding:12px 0 12px 56px;border-bottom:1px dashed var(--rule);}
+  .steps > li:last-child{border-bottom:0;}
+  .steps > li::before{
+    content:"S" counter(s);position:absolute;left:0;top:14px;
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;
+    color:var(--paper);background:var(--solder);padding:2px 8px;
+  }
+  .steps p{font-size:15px;margin-bottom:6px;}
+  .steps pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.6px;line-height:1.7;padding:12px 16px;overflow-x:auto;margin:8px 0 4px;}
+  .steps .expect{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--solder);margin-top:4px;}
+
+  .glossary{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;}
+  @media(max-width:760px){.glossary{grid-template-columns:1fr;}}
+  .glossary dl{margin:0;}
+  .glossary .entry{padding:11px 0;border-bottom:1px dashed var(--rule);}
+  .glossary dt{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);letter-spacing:.03em;}
+  .glossary dd{font-size:14px;color:#2E312B;margin-top:2px;}
+
+  .reading{list-style:none;max-width:80ch;}
+  .reading li{padding:12px 0;border-bottom:1px dashed var(--rule);font-size:15px;}
+  .reading li:last-child{border-bottom:0;}
+  .reading .why{display:block;font-size:13.5px;color:var(--dim);margin-top:2px;}
+
+  footer{margin-top:64px;border-top:3px solid var(--ink);padding-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+
+  /* ================= MOBILE RULES ================= */
+  .mono, code, a.x, a.gl{overflow-wrap:anywhere;}
+  body{overflow-x:hidden;}
+  html{-webkit-text-size-adjust:100%;}
+  table{min-width:560px;}
+  @media (max-width:640px){
+    .sheet{padding:0 16px 60px;}
+    .steps > li{padding:40px 0 12px 0;}
+    .steps > li::before{top:10px;}
+    .gotchas li{padding:38px 0 14px 0;}
+    .gotchas li::before{top:12px;}
+    .pins li{display:block;}
+    .pins .pin{display:block;min-width:0;margin-bottom:2px;}
+    .tabpanel pre,.steps pre{font-size:11.8px;}
+    .tabs button{flex:1 1 auto;text-align:center;}
+    .spec-box{width:100%;min-width:0;}
+    .masthead{align-items:stretch;}
+    .fig-cap::before{content:"SWIPE \2192  ·  ";color:var(--copper);font-weight:600;}
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <!-- ================= HEADER ================= -->
+  <header>
+    <div class="doc-line">
+      <span>GPU Fabrics &middot; Technical Explainer</span>
+      <span class="std">Concepts: Control plane vs data plane &middot; CNI</span>
+      <span>Rev. 2026.7</span>
+    </div>
+    <div class="masthead">
+      <div>
+        <h1>K8S <span class="amp">&amp;</span> THE PACKET</h1>
+        <p class="subtitle">Kubernetes never touches your traffic. It programs the machines that do. Once you see that, "does bare metal route through Kubernetes?" answers itself.</p>
+      </div>
+      <div class="spec-box" aria-label="Quick reference">
+        <div><span class="k">K8s is</span><b>a control plane (a scheduler)</b></div>
+        <div><span class="k">Packets flow</span><b>NIC &#8594; switch &#8594; NIC, always</b></div>
+        <div><span class="k">Who forwards</span><b>Linux kernel / NIC / switch ASIC</b></div>
+        <div><span class="k">K8s' role</span><b>writes the config they follow</b></div>
+        <div><span class="k">Bare metal</span><b>K8s not in path — at all</b></div>
+        <div><span class="k">API down?</span><b>traffic keeps flowing (Lab B)</b></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= 1. WHAT ================= -->
+  <section id="what">
+    <div class="sec-head"><span class="sec-num">1</span><h2>The two planes</h2></div>
+    <div class="two-col">
+      <div class="def-card sw">
+        <div class="tag"><span>Control plane</span><span>DECIDES</span></div>
+        <div class="body">
+          <p class="one-liner">The clipboard: decides, never carries.</p>
+          <p>A <a class="gl" href="#g-cplane">control plane</a> is software that holds <b>desired state</b> ("pod X should exist on node 3"; "tenant A owns VLAN 100") and pushes configuration to make it true. The Kubernetes API server, its controllers, a <a class="gl" href="#g-cni">CNI</a>'s agent, and fabric managers like Netris or OVN are all control planes.</p>
+          <p>Control planes talk in API calls and config writes. They are <b>slow-path</b> by design: involved when something is created, moved, or deleted — then they get out of the way.</p>
+        </div>
+      </div>
+      <div class="def-card hw">
+        <div class="tag"><span>Data plane</span><span>CARRIES</span></div>
+        <div class="body">
+          <p class="one-liner">The conveyor: carries, never decides.</p>
+          <p>The <a class="gl" href="#g-dplane">data plane</a> is what actually moves bytes: the Linux kernel's routing tables and <a class="gl" href="#g-ebpf">eBPF</a>/iptables programs, the NIC, and the switch ASIC. It executes, per-packet, whatever rules the control plane installed — at nanosecond speeds no API call could ever match.</p>
+          <p>Crucially, the data plane <b>keeps running if the control plane dies</b>. Rules already installed keep forwarding. You'll prove this yourself in Lab B.</p>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:24px" class="lead">The relationship in one sentence: <b>the control plane programs the path; it is never on the path.</b> "Traffic routes through Kubernetes" is a category error — like saying your commute routes through the city's traffic-light control room.</p>
+  </section>
+
+  <!-- ================= 2. THE JOB ================= -->
+  <section id="job">
+    <div class="sec-head"><span class="sec-num">2</span><h2>The questions this untangles</h2></div>
+    <div class="scenarios">
+      <div><span class="q">Bare-metal tenant traffic — through K8s?</span><span class="a">Never. It goes tenant NIC &#8594; switch fabric &#8594; destination. If the operator runs K8s internally (to host provisioning software), that cluster configured the switches once — it doesn't see packets.</span></div>
+      <div><span class="q">What's a "Kubernetes VPC" then?</span><span class="a">Marketing shorthand. A VPC is isolation <em>config</em> (VLANs/VXLAN, routes, ACLs) pushed into switches and hosts by some control plane. Nothing called "a VPC" ever forwards a packet.</span></div>
+      <div><span class="q">API server crashes — do pods go dark?</span><span class="a">No. Existing pods keep talking; installed kernel/switch rules keep forwarding. You just can't <em>change</em> anything until it's back.</span></div>
+      <div><span class="q">How does a Service IP work?</span><span class="a">It doesn't "go somewhere." Every node's kernel carries a rule: "dst 10.96.0.7 &#8594; rewrite to one of these pod IPs." The rewrite happens on the node where the packet already is.</span></div>
+      <div><span class="q">Why do GPU pods grab the NIC directly?</span><span class="a">Overlay networking costs encapsulation and kernel hops. RDMA pods use <a class="gl" href="#g-sriov">SR-IOV</a>/host-device via <a class="gl" href="#g-multus">Multus</a> — the fastest K8s networking is K8s stepping aside.</span></div>
+      <div><span class="q">Then what IS K8s doing all day?</span><span class="a">Reconciling: watching desired vs actual state and issuing config. A scheduler and a very persistent janitor — not a router.</span></div>
+    </div>
+    <div class="callout"><b>The core insight:</b> every networking layer has this same split. K8s : kernel rules :: Netris : switch config :: OVN : flow tables :: UFM : InfiniBand fabric. Learn the split once and every "does X route through Y?" question becomes: <em>is Y installing rules, or executing them?</em></div>
+    <h3>What each plane concretely does</h3>
+    <ul class="pins">
+      <li><span class="pin">CONTROL</span>API server stores objects; controllers reconcile; <a class="gl" href="#g-kubelet">kubelet</a> starts containers; CNI plugin allocates the pod IP and installs routes/eBPF. All slow-path.</li>
+      <li><span class="pin">DATA</span>Kernel matches each packet against routes, <a class="gl" href="#g-conntrack">conntrack</a>, eBPF programs; NIC DMAs it; switch ASIC forwards it by MAC/VLAN. All fast-path.</li>
+      <li><span class="pin">HANDOFF</span>The only connection between the planes is <b>installed configuration</b> — there is no wire from the API server to your packets.</li>
+      <li><span class="pin">BARE METAL</span>For a bare-metal tenant node, K8s' involvement ended at provisioning (BMC/Redfish calls, switch-port VLAN assignment). Steady-state: zero.</li>
+    </ul>
+  </section>
+
+  <!-- ================= 3. SIGNATURE DIAGRAM ================= -->
+  <section id="diagram">
+    <div class="sec-head"><span class="sec-num">3</span><h2>Programs the path — never on the path</h2></div>
+    <p>One picture, both planes. Copper dashed arrows are <b>configuration writes</b> (rare, slow-path). Green solid arrows are <b>the actual packet</b> (constant, fast-path). Notice the packet's route: pod &#8594; kernel &#8594; NIC &#8594; switch &#8594; NIC &#8594; kernel &#8594; pod. It never ascends into the control plane box. And the bare-metal tenant on the right touches only the switch.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 980 640" role="img" aria-label="Diagram split into a control plane region on top containing the Kubernetes API server, controllers, CNI agent and fabric manager, and a data plane region below with two Kubernetes nodes and a bare-metal tenant node connected through a top-of-rack switch. Dashed copper arrows show configuration being written from the control plane to the nodes and switch. A solid green arrow shows a packet traveling from a pod on node 1 through its kernel and NIC, through the switch, into node 2's NIC, kernel and pod, never entering the control plane. A separate green arrow shows bare-metal tenant traffic passing only through the switch.">
+        <!-- control plane region -->
+        <rect x="30" y="24" width="920" height="170" fill="#FBF4EC" stroke="#B0632F" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="48" y="50" font-family="IBM Plex Mono" font-size="11.5" fill="#B0632F" letter-spacing="1">CONTROL PLANE — DECIDES · SLOW PATH · NOT ON THE WIRE</text>
+
+        <g class="blk"><rect x="60" y="70" width="180" height="90" fill="#FFFFFF" stroke="#B0632F" stroke-width="2"/>
+          <text x="150" y="100" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="16" font-weight="700">K8S API SERVER</text>
+          <text x="150" y="122" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">desired state lives here</text>
+          <text x="150" y="140" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">(etcd behind it)</text></g>
+        <g class="blk"><rect x="280" y="70" width="180" height="90" fill="#FFFFFF" stroke="#B0632F" stroke-width="2"/>
+          <text x="370" y="100" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="16" font-weight="700">CONTROLLERS</text>
+          <text x="370" y="122" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">scheduler · deployments</text>
+          <text x="370" y="140" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">reconcile loops</text></g>
+        <g class="blk"><rect x="500" y="70" width="180" height="90" fill="#FFFFFF" stroke="#B0632F" stroke-width="2"/>
+          <text x="590" y="100" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="16" font-weight="700">CNI AGENT</text>
+          <text x="590" y="122" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">Cilium / Calico / Kube-OVN</text>
+          <text x="590" y="140" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">writes routes + eBPF</text></g>
+        <g class="blk"><rect x="720" y="70" width="200" height="90" fill="#FFFFFF" stroke="#B0632F" stroke-width="2"/>
+          <text x="820" y="100" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="16" font-weight="700">FABRIC MANAGER</text>
+          <text x="820" y="122" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">Netris / OVN / manual CLI</text>
+          <text x="820" y="140" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">writes VLANs + ACLs</text></g>
+
+        <!-- config arrows -->
+        <g stroke="#B0632F" stroke-width="2" stroke-dasharray="6 5" fill="none">
+          <path d="M590 160 L590 210 L235 210 L235 300" marker-end="url(#carr)"/>
+          <path d="M610 160 L610 230 L560 230 L560 300" marker-end="url(#carr)"/>
+          <path d="M820 160 L820 385 L770 385" marker-end="url(#carr)"/>
+        </g>
+        <text x="330" y="204" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#B0632F">"installs kernel rules" (on pod create)</text>
+        <text x="828" y="240" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#B0632F">"assigns port to</text>
+        <text x="828" y="256" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#B0632F">tenant VLAN" (once)</text>
+
+        <!-- data plane region -->
+        <rect x="30" y="280" width="920" height="330" fill="#F4FBF6" stroke="#0E5138" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="48" y="306" font-family="IBM Plex Mono" font-size="11.5" fill="#0E5138" letter-spacing="1">DATA PLANE — CARRIES · FAST PATH · SURVIVES CONTROL-PLANE OUTAGE</text>
+
+        <!-- node 1 -->
+        <g class="blk"><rect x="70" y="330" width="230" height="180" fill="#FFFFFF" stroke="#17191B" stroke-width="2"/>
+          <text x="185" y="356" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700">K8S NODE 1</text>
+          <rect x="95" y="370" width="80" height="40" fill="#E3EEE7" stroke="#0E5138" stroke-width="1.6"/>
+          <text x="135" y="395" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#0E5138">POD A</text>
+          <rect x="95" y="424" width="180" height="34" fill="#FAFAF6" stroke="#17191B" stroke-width="1.4"/>
+          <text x="185" y="446" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#17191B">KERNEL: routes · eBPF · veth</text>
+          <rect x="95" y="470" width="180" height="28" fill="#FAFAF6" stroke="#17191B" stroke-width="1.4"/>
+          <text x="185" y="489" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#17191B">NIC</text></g>
+
+        <!-- node 2 -->
+        <g class="blk"><rect x="390" y="330" width="230" height="180" fill="#FFFFFF" stroke="#17191B" stroke-width="2"/>
+          <text x="505" y="356" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700">K8S NODE 2</text>
+          <rect x="435" y="370" width="80" height="40" fill="#E3EEE7" stroke="#0E5138" stroke-width="1.6"/>
+          <text x="475" y="395" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#0E5138">POD B</text>
+          <rect x="415" y="424" width="180" height="34" fill="#FAFAF6" stroke="#17191B" stroke-width="1.4"/>
+          <text x="505" y="446" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#17191B">KERNEL: routes · eBPF · veth</text>
+          <rect x="415" y="470" width="180" height="28" fill="#FAFAF6" stroke="#17191B" stroke-width="1.4"/>
+          <text x="505" y="489" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#17191B">NIC</text></g>
+
+        <!-- bare metal tenant -->
+        <g class="blk"><rect x="700" y="330" width="230" height="180" fill="#FFFFFF" stroke="#1E4E79" stroke-width="2"/>
+          <text x="815" y="356" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700" fill="#1E4E79">BARE-METAL TENANT</text>
+          <text x="815" y="376" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">customer has root · no kubelet</text>
+          <rect x="725" y="390" width="180" height="40" fill="#E1EAF2" stroke="#1E4E79" stroke-width="1.6"/>
+          <text x="815" y="415" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#1E4E79">TENANT WORKLOAD</text>
+          <rect x="725" y="470" width="180" height="28" fill="#FAFAF6" stroke="#17191B" stroke-width="1.4"/>
+          <text x="815" y="489" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#17191B">NIC</text></g>
+
+        <!-- switch -->
+        <g class="blk"><rect x="330" y="545" width="340" height="50" fill="#FFFFFF" stroke="#17191B" stroke-width="2.2"/>
+          <text x="500" y="568" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="16" font-weight="700">TOR SWITCH</text>
+          <text x="500" y="586" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">forwards by MAC + VLAN — see companion sheet "RoCE &amp; the Switch"</text></g>
+
+        <!-- packet path -->
+        <g stroke="#0E5138" stroke-width="3" fill="none">
+          <path d="M135 410 L135 441 L185 441"/>
+          <path d="M185 458 L185 484 L275 484"/>
+          <path d="M275 484 L310 484 L310 560 L330 560"/>
+          <path d="M670 560 L690 560 L690 520"/>
+          <path d="M690 520 L505 520 L505 498" marker-end="url(#garr)"/>
+        </g>
+        <text x="240" y="530" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#0E5138">THE PACKET: pod&#8594;kernel&#8594;NIC&#8594;switch&#8594;NIC&#8594;pod</text>
+
+        <!-- bare metal path -->
+        <path d="M815 498 L815 570 L670 570" fill="none" stroke="#1E4E79" stroke-width="3" marker-end="url(#barr)"/>
+        <text x="700" y="620" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#1E4E79">TENANT TRAFFIC: NIC&#8594;switch. K8s: nowhere.</text>
+
+        <defs>
+          <marker id="carr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#B0632F"/></marker>
+          <marker id="garr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#0E5138"/></marker>
+          <marker id="barr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1E4E79"/></marker>
+        </defs>
+      </svg>
+      <div class="legend">
+        <span><span class="swatch" style="background:#B0632F"></span>config writes (control, dashed)</span>
+        <span><span class="swatch" style="background:#0E5138"></span>pod packet (data, solid)</span>
+        <span><span class="swatch" style="background:#1E4E79"></span>bare-metal tenant traffic</span>
+      </div>
+      <div class="fig-cap">FIG. 3-1 — The packet's whole life happens in the green region. The control plane touched the journey only in the past tense: it once installed the rules the kernel and switch are now executing.</div>
+    </div>
+  </section>
+
+  <!-- ================= 4. HANDS-ON ================= -->
+  <section id="mechanics">
+    <div class="sec-head"><span class="sec-num">4</span><h2>Hands-on mechanics — where the rules actually live</h2></div>
+    <p>Four exhibits, all inspectable on any cluster (Lab A builds you one). Each is a piece of <em>installed configuration</em> — the only artifact the control plane ever leaves behind in the data path.</p>
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true"  data-tab="t-route">ROUTES</button>
+      <button role="tab" aria-selected="false" data-tab="t-svc">SERVICE IP</button>
+      <button role="tab" aria-selected="false" data-tab="t-fast">FAST PATHS</button>
+      <button role="tab" aria-selected="false" data-tab="t-vpc">"VPC"</button>
+    </div>
+    <div class="tabpanel">
+      <div role="tabpanel" id="t-route">
+<pre><span class="cm2"># On any K8s node: pod networking is just... the Linux routing table.</span>
+$ <span class="verb">ip route</span>
+<span class="key">10.244.0.0/24</span> via 172.18.0.3 dev eth0    <span class="cm2">&#8592; "pods on node A live behind node A"</span>
+<span class="key">10.244.1.0/24</span> via 172.18.0.4 dev eth0    <span class="cm2">&#8592; installed by the CNI at join time</span>
+<span class="key">10.244.2.2</span> dev veth1a2b scope host        <span class="cm2">&#8592; a local pod's veth pair</span>
+
+<span class="cm2"># The pod's end of the wire:</span>
+$ <span class="verb">kubectl exec</span> mypod -- ip addr    <span class="cm2"># eth0 here = veth peer in the node kernel</span></pre>
+        <div class="note"><b>Takeaway:</b> there is no "Kubernetes network device." A pod's <a class="gl" href="#g-veth">veth</a> plugs into the node's kernel; the kernel forwards using ordinary routes the CNI wrote. Delete the CNI pod and traffic still flows — the routes remain.</div>
+      </div>
+      <div role="tabpanel" id="t-svc" hidden>
+<pre><span class="cm2"># A Service "IP" (ClusterIP) is a rewrite rule on EVERY node, not a place:</span>
+$ <span class="verb">iptables -t nat -L KUBE-SERVICES</span> | grep my-svc
+KUBE-SVC-X7... tcp dpt:80 <span class="key">10.96.14.7</span>       <span class="cm2">&#8592; "if dst is the Service IP..."</span>
+$ <span class="verb">iptables -t nat -L KUBE-SVC-X7...</span>
+KUBE-SEP-A1... statistic mode random probability <span class="str">0.5</span>   <span class="cm2">&#8592; "...pick a backend pod"</span>
+KUBE-SEP-B2...                                   <span class="cm2">   and DNAT to its real IP</span>
+
+<span class="cm2"># (Cilium does the same job as an eBPF map instead of iptables chains)</span></pre>
+        <div class="note"><b>Takeaway:</b> when you curl a Service, <a class="gl" href="#g-kubeproxy">kube-proxy</a> isn't proxying anything — it already programmed your node's kernel to rewrite the destination. The packet is corrected <em>where it already is</em>, then travels node-to-node like any other.</div>
+      </div>
+      <div role="tabpanel" id="t-fast" hidden>
+<pre><span class="cm2"># For GPU/RDMA traffic, even the kernel is too much middleman.</span>
+<span class="cm2"># Multus attaches a SECOND, direct interface to the pod:</span>
+<span class="verb">apiVersion:</span> v1
+<span class="verb">kind:</span> Pod
+<span class="verb">metadata:</span>
+  <span class="key">annotations:</span>
+    k8s.v1.cni.cncf.io/networks: <span class="str">sriov-rdma-net</span>   <span class="cm2">&#8592; a Virtual Function of the</span>
+<span class="verb">spec:</span>                                              <span class="cm2">   real NIC, passed into the pod</span>
+  <span class="key">containers:</span>
+  - resources:
+      limits:
+        nvidia.com/gpu: <span class="str">8</span>
+        rdma/rdma_shared_device_a: <span class="str">1</span>
+
+<span class="cm2"># NCCL then talks straight to the NIC hardware. CNI overlay: bypassed.</span></pre>
+        <div class="note"><b>Takeaway:</b> the highest-performance Kubernetes networking is Kubernetes arranging its own absence. <a class="gl" href="#g-sriov">SR-IOV</a>/host-device hands the pod real NIC hardware; the east-west RDMA fabric (see companion sheet "RoCE &amp; the Switch") never touches the overlay.</div>
+      </div>
+      <div role="tabpanel" id="t-vpc" hidden>
+<pre><span class="cm2"># "Create a VPC" — what actually happens, in any stack:</span>
+
+tenant intent      <span class="str">"tenant A: isolated network 10.1.0.0/16"</span>
+      &#8595; API call
+control plane      Netris / OVN / Neutron / your thin API
+      &#8595; config writes (the ONLY thing that moves)
+switch fabric      VLAN 100 / VXLAN VNI 10100 on tenant A's ports
+host kernels       VRF / routes / ACL rules
+DPUs (if any)      per-tenant ACLs on the NIC's own cores
+
+<span class="cm2"># Result: a "VPC" = rows in a database + config in devices.</span>
+<span class="cm2"># No packet ever visits a thing called VPC.</span></pre>
+        <div class="note"><b>Takeaway:</b> AWS invented "VPC" as a product name for exactly this: distributed isolation config with a nice API. When a vendor says their platform "provides VPCs for bare metal," ask one question: <em>which device executes the isolation, and who programs it?</em></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 5. ALTERNATIVES ================= -->
+  <section id="alternatives">
+    <div class="sec-head"><span class="sec-num">5</span><h2>Alternatives &amp; comparables — ways a pod can reach the wire</h2></div>
+    <p>Inside Kubernetes, "networking" is a pluggable choice. These are the four serious data-path options for a GPU cloud; most real clusters combine two or three.</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Axis</th><th>Overlay CNI (Flannel, default Calico)</th><th>eBPF CNI (Cilium)</th><th>Underlay CNI (Kube-OVN, Calico BGP)</th><th>Multus + SR-IOV / host-device</th></tr></thead>
+      <tbody>
+        <tr><td>Data path</td><td>Encapsulate pod traffic in VXLAN between nodes</td><td>eBPF programs in kernel; can skip iptables &amp; encap</td><td>Pod IPs routed natively in the fabric (BGP/EVPN)</td><td class="win">Pod owns (a slice of) the physical NIC</td></tr>
+        <tr><td>Performance</td><td>Good; encap tax on CPU &amp; MTU</td><td class="win">Excellent for TCP/HTTP paths</td><td>Near-native; fabric does the work</td><td class="win">Native — required for RDMA/NCCL</td></tr>
+        <tr><td>Ops complexity</td><td class="win">Lowest — works anywhere</td><td>Moderate; debugging is eBPF-shaped</td><td>High — you now run BGP to every node</td><td>High — NIC inventory, VF lifecycle</td></tr>
+        <tr><td>Tenant isolation</td><td>NetworkPolicy only (soft)</td><td>NetworkPolicy + strong observability</td><td class="win">Real VLAN/VXLAN per tenant, fabric-enforced</td><td>Inherits fabric isolation of the VF's VLAN</td></tr>
+        <tr><td>Fabric coupling</td><td class="win">None — any L3 network</td><td class="win">None to light</td><td>Deep — CNI and switches co-designed</td><td>Deep — NIC model &amp; firmware matter</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <ul class="pins" style="margin-top:20px">
+      <li><span class="pin">PICK OVERLAY</span>Control-plane clusters, internal tooling, anything where simplicity beats the last 20% of throughput.</li>
+      <li><span class="pin">PICK CILIUM</span>The general-purpose default in 2026: eBPF speed, NetworkPolicy, Hubble observability — without re-architecting the fabric.</li>
+      <li><span class="pin">PICK UNDERLAY</span>Multi-tenant KaaS where tenant pods need <em>fabric-enforced</em> isolation mapped to real VLANs/VXLANs (Kube-OVN is the OSS workhorse here).</li>
+      <li><span class="pin">PICK SR-IOV</span>Always — for the GPU/RDMA interface specifically. It coexists with any of the above via Multus: overlay for pod chatter, direct NIC for NCCL.</li>
+    </ul>
+  </section>
+
+  <!-- ================= 6. APPLICATIONS ================= -->
+  <section id="apps">
+    <div class="sec-head"><span class="sec-num">6</span><h2>Where the split shows up</h2></div>
+    <div class="apps">
+      <div class="app" data-ref="APP-01">
+        <h3>Bare-metal-as-a-service</h3>
+        <p>The operator's provisioning stack (often itself on K8s) drives BMCs over Redfish and assigns switch ports to tenant VLANs — pure control-plane work. The tenant's packets then flow NIC-to-switch with the operator's software nowhere in the path.</p>
+        <p class="tools"><a class="x" href="https://metal3.io" target="_blank" rel="noopener">Metal&sup3;</a> · Ironic · NVIDIA NICo · <a class="x" href="https://www.netris.io" target="_blank" rel="noopener">Netris</a></p>
+      </div>
+      <div class="app" data-ref="APP-02">
+        <h3>Kubernetes-as-a-service</h3>
+        <p>Virtual control planes (one API server per tenant) share physical nodes; the data path is whatever CNI + fabric config the operator installed. Tenant isolation quality = fabric config quality, not K8s namespace boundaries.</p>
+        <p class="tools"><a class="x" href="https://www.vcluster.com" target="_blank" rel="noopener">vCluster</a> · <a class="x" href="https://kubeovn.github.io/docs/" target="_blank" rel="noopener">Kube-OVN</a> · Cilium</p>
+      </div>
+      <div class="app" data-ref="APP-03">
+        <h3>GPU training/inference pods</h3>
+        <p>Pods get two personalities: an ordinary CNI interface for control chatter, and a Multus-attached SR-IOV interface where NCCL/RDMA runs at wire speed. Two planes, visible inside one pod spec.</p>
+        <p class="tools"><a class="x" href="https://github.com/k8snetworkplumbingwg/multus-cni" target="_blank" rel="noopener">Multus</a> · <a class="x" href="https://github.com/k8snetworkplumbingwg/sriov-network-operator" target="_blank" rel="noopener">SR-IOV operator</a> · NVIDIA Network Operator</p>
+      </div>
+      <div class="app" data-ref="APP-04">
+        <h3>Load balancers on bare metal</h3>
+        <p>No cloud LB exists, so MetalLB answers ARP for a Service's external IP (L2 mode) or announces it via BGP — again: a controller that programs the network's existing mechanisms rather than sitting in the path (in L2 mode, traffic does land on one chosen node first).</p>
+        <p class="tools"><a class="x" href="https://metallb.io" target="_blank" rel="noopener">MetalLB</a> · kube-vip · BGP</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 7. ECOSYSTEM ================= -->
+  <section id="eco">
+    <div class="sec-head"><span class="sec-num">7</span><h2>Ecosystem — decoding the names</h2></div>
+    <div class="eco">
+      <div class="eco-col">
+        <h3>Inside the node</h3>
+        <ul>
+          <li><b>kubelet</b><span>The node agent: starts containers, calls the CNI plugin. Control plane's hands.</span></li>
+          <li><b>CNI</b><span>Container Network Interface — the plugin contract: "pod created, give it networking."</span></li>
+          <li><b>kube-proxy</b><span>Misnamed: not a proxy. Programs Service rewrite rules (iptables/IPVS) into the kernel.</span></li>
+          <li><b>eBPF</b><span>Sandboxed programs the kernel runs per-packet — how Cilium replaces iptables.</span></li>
+        </ul>
+      </div>
+      <div class="eco-col">
+        <h3>CNI implementations</h3>
+        <ul>
+          <li><b>Cilium</b><span>eBPF-based, CNCF-graduated; the mainstream high-performance choice.</span></li>
+          <li><b>Calico</b><span>Routing-centric (BGP-capable) with a policy engine; overlay optional.</span></li>
+          <li><b>Kube-OVN</b><span>Brings OVN's VPC/VLAN model into K8s — the OSS route to fabric-real tenant isolation.</span></li>
+          <li><b>Flannel</b><span>The minimal VXLAN overlay; fine when networking isn't the product.</span></li>
+        </ul>
+      </div>
+      <div class="eco-col">
+        <h3>At the fabric edge</h3>
+        <ul>
+          <li><b>Multus</b><span>Lets a pod have multiple interfaces — the door to SR-IOV and RDMA.</span></li>
+          <li><b>SR-IOV</b><span>One physical NIC presents many Virtual Functions; pods/VMs get real hardware queues.</span></li>
+          <li><b>MetalLB</b><span>LoadBalancer Services on bare metal via ARP or BGP announcements.</span></li>
+          <li><b>NVIDIA Network Operator</b><span>Installs the RDMA/SR-IOV plumbing (drivers, device plugins) cluster-wide.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 8. GOTCHAS ================= -->
+  <section id="gotchas">
+    <div class="sec-head"><span class="sec-num">8</span><h2>Gotchas — security first</h2></div>
+    <ol class="gotchas">
+      <li><b>Namespaces are not walls.</b> K8s namespaces and NetworkPolicies are control-plane constructs enforced by software the node runs. For hostile multi-tenancy, security auditors (and GPU-cloud rating rubrics) demand isolation the tenant can't reach even with a container escape: separate nodes, fabric VLANs, DPU ACLs. Don't sell namespace isolation as tenant isolation.</li>
+      <li><b>hostNetwork pods skip everything.</b> A pod with <span class="mono">hostNetwork: true</span> uses the node's interfaces directly — no CNI, no NetworkPolicy. Fine for infra agents; catastrophic if tenant workloads can request it. Gate it with admission policy.</li>
+      <li><b>The overlay MTU trap.</b> VXLAN steals ~50 bytes per packet. If pod MTU isn't reduced to match, large packets silently fragment or drop, and only <em>some</em> traffic breaks. If big transfers hang but pings work, check MTU first.</li>
+      <li><b>Control-plane outage &#8800; outage — but don't relax.</b> Existing traffic survives an API-server crash (Lab B), but nothing can be scheduled, healed, or scaled. Conversely: don't debug a traffic problem by staring at the API server — it was never in the path. Wrong plane, wrong tools.</li>
+      <li><b>Service IPs don't exist off-cluster.</b> ClusterIPs are rewrite rules inside member nodes' kernels. A bare-metal tenant (or your laptop) can't reach one — that's what LoadBalancer/MetalLB/ingress are for. "Why can't the BM node hit 10.96.x.x" is this, every time.</li>
+      <li><b>Two planes, two failure smells.</b> Config that won't apply, pods stuck Pending, "unable to connect to the server" = control plane. Drops, latency, one-direction traffic, MTU weirdness = data plane. Diagnosing the right plane first cuts most network debugging in half.</li>
+      <li><b>Trust, then verify — in the labs below.</b> Every claim here is checkable in 20 minutes with a free local cluster.</li>
+    </ol>
+  </section>
+
+  <!-- ================= 9. LABS ================= -->
+  <section id="labs">
+    <div class="sec-head"><span class="sec-num">9</span><h2>Run it yourself</h2></div>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB A — X-ray a cluster's data path</h3><span class="meta">~15 min · needs Docker · kind</span></div>
+      <div class="lab-body">
+        <p>Build a throwaway two-node cluster and go find the "Kubernetes network" — you'll discover it's routes, veths, and iptables all the way down.</p>
+        <ol class="steps">
+          <li><p><b>Install <a class="x" href="https://kind.sigs.k8s.io" target="_blank" rel="noopener">kind</a> (Kubernetes-in-Docker) and create a 2-node cluster.</b></p>
+<pre>curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
+chmod +x ./kind && sudo mv ./kind /usr/local/bin/
+cat &lt;&lt;EOF | kind create cluster --config=-
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes: [{role: control-plane}, {role: worker}]
+EOF</pre>
+            <p class="expect">EXPECT: two Docker containers acting as nodes; `kubectl get nodes` shows both Ready. (kubectl: <span class="mono">sudo apt install -y kubectl</span> or see kind's docs.)</p></li>
+          <li><p><b>Run two pods and inspect the "network" from inside a node.</b></p>
+<pre>kubectl create deploy web --image=nginx --replicas=2
+kubectl get pods -o wide                    # note pod IPs + nodes
+docker exec -it kind-worker ip route        # the node's kernel routing table
+docker exec -it kind-worker ip addr | grep veth</pre>
+            <p class="expect">EXPECT: routes for each node's pod CIDR + one veth per local pod. That routing table IS pod networking — installed by the CNI, executed by the kernel.</p></li>
+          <li><p><b>Find a Service IP living in iptables.</b></p>
+<pre>kubectl expose deploy web --port=80
+kubectl get svc web                         # note the ClusterIP
+docker exec -it kind-worker iptables-save | grep -A2 "default/web"</pre>
+            <p class="expect">EXPECT: NAT rules matching the ClusterIP and DNAT-ing to the two pod IPs — the SERVICE IP tab of Section 4, live.</p></li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB B — Kill the control plane; traffic shrugs</h3><span class="meta">~10 min · continues Lab A</span></div>
+      <div class="lab-body">
+        <p>The claim from Section 1, proven: the data plane doesn't need the control plane to keep forwarding.</p>
+        <ol class="steps">
+          <li><p><b>Start a continuous pod-to-pod ping that logs every packet.</b></p>
+<pre>POD_IP=$(kubectl get pod -l app=web -o jsonpath='{.items[0].status.podIP}')
+kubectl run pinger --image=busybox --restart=Never -- sh -c "ping $POD_IP"
+sleep 5 && kubectl logs pinger | tail -3    # confirm it's flowing</pre>
+            <p class="expect">EXPECT: steady icmp_seq replies between two pods across the cluster.</p></li>
+          <li><p><b>Now pause the entire control plane.</b></p>
+<pre>docker pause kind-control-plane
+kubectl get pods                            # FAILS — API server unreachable
+sleep 30</pre>
+            <p class="expect">EXPECT: kubectl errors ("connection refused") — Kubernetes is, for all management purposes, dead. Wait the 30 seconds.</p></li>
+          <li><p><b>Resurrect it and read the ping log.</b></p>
+<pre>docker unpause kind-control-plane
+sleep 10
+kubectl logs pinger | awk -F'icmp_seq=' '{print $2}' | cut -d' ' -f1 | sort -n | awk 'NR&gt;1 &amp;&amp; $1!=prev+1 {print "GAP after", prev} {prev=$1}'</pre>
+            <p class="expect">EXPECT: no GAP lines — the sequence numbers are continuous. Packets flowed the entire time Kubernetes was frozen, because the kernel rules were already installed. The control plane programs the path; it is not on it. (Cleanup: <span class="mono">kind delete cluster</span>)</p></li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB C — Graduation: give a pod a real second NIC</h3><span class="meta">~30 min · continues Lab A · Multus</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li><p><b>Install <a class="x" href="https://github.com/k8snetworkplumbingwg/multus-cni" target="_blank" rel="noopener">Multus</a>,</b> the meta-CNI that lets pods have multiple interfaces:</p>
+<pre>kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset.yml</pre>
+            <p class="expect">EXPECT: kube-multus pods Running in kube-system.</p></li>
+          <li><p><b>Define a second network</b> (macvlan on the node's real interface — the stand-in for SR-IOV on real hardware):</p>
+<pre>cat &lt;&lt;EOF | kubectl apply -f -
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata: {name: direct-net}
+spec:
+  config: '{"cniVersion":"0.3.1","type":"macvlan","master":"eth0",
+            "mode":"bridge","ipam":{"type":"host-local",
+            "subnet":"172.18.100.0/24"}}'
+EOF
+kubectl run twonic --image=busybox --restart=Never \
+  --annotations=k8s.v1.cni.cncf.io/networks=direct-net -- sleep 3600
+kubectl exec twonic -- ip addr</pre>
+            <p class="expect">EXPECT: the pod shows eth0 (CNI overlay) AND net1 (direct attachment) — the exact dual-personality pattern GPU pods use, with net1 standing in for the RDMA-capable Virtual Function.</p></li>
+          <li><p><b>On real gear, the graduation step</b> is the same annotation pointing at an SR-IOV network via the <a class="x" href="https://github.com/k8snetworkplumbingwg/sriov-network-operator" target="_blank" rel="noopener">SR-IOV operator</a> — then Lab B of the companion sheet "RoCE &amp; the Switch" (rping/ib_send_bw) runs <em>inside the pod</em> over net1.</p>
+            <p class="expect">EXPECT: RDMA at wire speed from a pod, CNI overlay untouched. Both sheets, one demo.</p></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 10. GLOSSARY ================= -->
+  <section id="glossary">
+    <div class="sec-head"><span class="sec-num">10</span><h2>Glossary — the jargon, decoded</h2></div>
+    <div class="glossary">
+      <dl>
+        <div class="entry" id="g-cplane"><dt>Control plane</dt><dd>The software that decides and configures: holds desired state, reconciles reality toward it, and writes rules into devices. Slow-path; not on the wire.</dd></div>
+        <div class="entry" id="g-dplane"><dt>Data plane</dt><dd>The machinery that forwards each packet by executing installed rules: kernel, NIC, switch ASIC. Fast-path; survives control-plane outages.</dd></div>
+        <div class="entry" id="g-cni"><dt>CNI</dt><dd>Container Network Interface — the plugin standard kubelet calls when a pod is created ("wire this pod up"). Cilium, Calico, Kube-OVN, and Flannel are CNI implementations. <a class="x" href="https://www.cni.dev" target="_blank" rel="noopener">cni.dev</a></dd></div>
+        <div class="entry" id="g-veth"><dt>veth pair</dt><dd>A virtual patch cable with two ends: one becomes the pod's eth0, the other sits in the node's kernel. How every non-hostNetwork pod reaches the world.</dd></div>
+        <div class="entry" id="g-kubelet"><dt>kubelet</dt><dd>The per-node agent of the control plane: watches the API for pods assigned to its node, starts containers, invokes the CNI plugin.</dd></div>
+        <div class="entry" id="g-kubeproxy"><dt>kube-proxy</dt><dd>Despite the name, forwards nothing. Programs each node's kernel (iptables or IPVS) with Service-IP rewrite rules. Cilium can replace it with eBPF.</dd></div>
+        <div class="entry" id="g-conntrack"><dt>conntrack</dt><dd>The kernel's connection-tracking table — how a DNAT'd Service packet's replies get un-rewritten on the way back.</dd></div>
+        <div class="entry" id="g-ebpf"><dt>eBPF</dt><dd>Safe, JIT-compiled programs attached inside the running kernel — per-packet logic without kernel modules. The engine under Cilium. <a class="x" href="https://ebpf.io" target="_blank" rel="noopener">ebpf.io</a></dd></div>
+      </dl>
+      <dl>
+        <div class="entry" id="g-overlay"><dt>Overlay / underlay</dt><dd>Underlay: the physical switched/routed network. Overlay: a virtual network tunneled on top of it (e.g. pod VXLAN). Overlays trade a small encapsulation tax for independence from the underlay's design.</dd></div>
+        <div class="entry" id="g-vxlan"><dt>VXLAN</dt><dd>The standard overlay encapsulation: an L2 frame carried in a UDP packet with a 24-bit network ID. Used both by CNIs (pod overlays) and by fabrics (tenant isolation at scale).</dd></div>
+        <div class="entry" id="g-clusterip"><dt>Service / ClusterIP</dt><dd>A stable virtual IP for a set of pods — implemented as a load-balancing rewrite rule present on every node in the cluster, and meaningless outside it.</dd></div>
+        <div class="entry" id="g-netpol"><dt>NetworkPolicy</dt><dd>K8s' firewall object: allow/deny rules between pods, enforced by the CNI in software on each node. Useful hygiene; not hostile-tenant isolation.</dd></div>
+        <div class="entry" id="g-hostnet"><dt>hostNetwork</dt><dd>A pod setting that skips the CNI entirely and uses the node's own interfaces — outside every NetworkPolicy. For infrastructure agents only.</dd></div>
+        <div class="entry" id="g-multus"><dt>Multus</dt><dd>A "meta-CNI" that attaches additional interfaces to a pod beyond the default one — the mechanism for giving GPU pods a direct RDMA-capable NIC. <a class="x" href="https://github.com/k8snetworkplumbingwg/multus-cni" target="_blank" rel="noopener">github</a></dd></div>
+        <div class="entry" id="g-sriov"><dt>SR-IOV</dt><dd>Single-Root I/O Virtualization: one physical NIC exposes many Virtual Functions, each assignable to a pod or VM as real hardware — near-native performance, no kernel middleman.</dd></div>
+        <div class="entry" id="g-metallb"><dt>MetalLB</dt><dd>Gives bare-metal clusters working LoadBalancer Services by answering ARP for the external IP (L2 mode) or announcing it over BGP. <a class="x" href="https://metallb.io" target="_blank" rel="noopener">metallb.io</a></dd></div>
+      </dl>
+    </div>
+
+    <h3 style="margin-top:36px;border-top:1.5px solid var(--ink);padding-top:18px">Further reading — where to go deeper</h3>
+    <ul class="reading">
+      <li><a class="x" href="https://kubernetes.io/docs/concepts/services-networking/" target="_blank" rel="noopener">Kubernetes docs: Services &amp; Networking</a><span class="why">The official model (every pod an IP, no NAT pod-to-pod) — short, and the vocabulary everything else assumes.</span></li>
+      <li><a class="x" href="https://kubernetes.io/docs/concepts/cluster-administration/networking/" target="_blank" rel="noopener">K8s: the cluster networking model</a><span class="why">Explains exactly what K8s requires of a CNI and refuses to implement itself — the "K8s is not a router" argument from the source.</span></li>
+      <li><a class="x" href="https://docs.cilium.io/en/stable/overview/intro/" target="_blank" rel="noopener">Cilium introduction</a><span class="why">Best modern explanation of what an eBPF data path replaces (kube-proxy, iptables) and why.</span></li>
+      <li><a class="x" href="https://kubeovn.github.io/docs/" target="_blank" rel="noopener">Kube-OVN docs</a><span class="why">Shows what "real VPC semantics inside K8s" looks like — subnets, VLANs, and fixed IPs mapped to the fabric.</span></li>
+      <li><a class="x" href="https://docs.nvidia.com/networking/software/cloud-orchestration/index.html" target="_blank" rel="noopener">NVIDIA Network Operator docs</a><span class="why">The production recipe for the SR-IOV/RDMA pod pattern from Lab C, on real GPU nodes.</span></li>
+      <li><a class="x" href="https://metallb.io/concepts/" target="_blank" rel="noopener">MetalLB concepts</a><span class="why">A beautifully honest doc about what a bare-metal LB can and cannot do with ARP and BGP.</span></li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>SOURCES: kubernetes.io docs · cni.dev · docs.cilium.io · kubeovn.github.io · metallb.io · k8snetworkplumbingwg (Multus/SR-IOV)</span>
+    <span>K8S &amp; THE PACKET — EXPLAINER · REV. 2026.7</span>
+  </footer>
+</div>
+
+<script type="application/json" id="knowledge-manifest">
+{ "topic": "Kubernetes networking vs bare metal: control plane and data plane",
+  "concepts": [
+    {"term":"Control plane","oneliner":"Software that decides and writes config (API server, controllers, CNI agents, fabric managers) — never carries traffic."},
+    {"term":"Data plane","oneliner":"What forwards every packet: kernel rules, NIC, switch ASIC — keeps running if the control plane dies."},
+    {"term":"CNI","oneliner":"The plugin kubelet calls at pod creation to allocate an IP and install routes/eBPF; pod networking is its leftover config."},
+    {"term":"veth pair","oneliner":"Virtual patch cable: one end is the pod's eth0, the other sits in the node kernel."},
+    {"term":"Service / ClusterIP","oneliner":"A rewrite rule installed on every node — not a destination; meaningless outside the cluster."},
+    {"term":"kube-proxy","oneliner":"Misnamed: programs Service rules into the kernel rather than proxying traffic."},
+    {"term":"Overlay vs underlay","oneliner":"Underlay = the physical fabric; overlay = virtual networks (VXLAN) tunneled over it, at a small encap/MTU tax."},
+    {"term":"Multus + SR-IOV","oneliner":"Gives a pod a second, direct hardware interface (a NIC Virtual Function) — how RDMA/NCCL bypasses the CNI."},
+    {"term":"hostNetwork","oneliner":"Pod setting that skips CNI and NetworkPolicy entirely; must be admission-gated for tenants."},
+    {"term":"NetworkPolicy vs tenant isolation","oneliner":"Software firewall rules per node — hygiene, not the fabric-enforced isolation hostile multi-tenancy requires."},
+    {"term":"'VPC'","oneliner":"A product name for distributed isolation config (VLAN/VXLAN/ACL rows) plus an API — no packet ever visits a VPC."},
+    {"term":"MetalLB","oneliner":"Bare-metal LoadBalancer: answers ARP or announces BGP for a Service's external IP."}
+  ],
+  "mechanisms": [
+    "Pod created -> scheduler binds to node -> kubelet calls CNI -> CNI allocates IP, creates veth, installs routes/eBPF -> from then on the kernel forwards with zero K8s involvement",
+    "Client hits ClusterIP -> local kernel matches KUBE-SERVICES rule -> DNAT to a chosen pod IP -> conntrack remembers -> reply un-rewritten on return",
+    "Tenant orders a 'VPC' -> control plane (Netris/OVN/custom API) writes VLAN/VXLAN + ACL config into switches, host kernels, DPUs -> isolation is executed by those devices per-packet",
+    "GPU pod starts -> default CNI interface for control traffic + Multus attaches SR-IOV VF -> NCCL drives the VF hardware directly -> overlay and kube-proxy never see RDMA bytes",
+    "API server dies -> installed kernel/switch rules keep forwarding existing flows -> no scheduling/healing/scaling until it returns"
+  ],
+  "scenarios": [
+    "A customer insists their bare-metal traffic must be slow because 'it routes through your Kubernetes.' Correct them precisely: what did K8s do, when, and what executes their packets now?",
+    "During an API-server outage, which of these break: existing pod-to-pod traffic, creating a new pod, an existing Service IP, scaling a deployment? Why each?",
+    "A tenant pod with hostNetwork:true appears in a KaaS cluster. Enumerate what protections it just escaped and what fabric-level controls still hold.",
+    "Large file transfers between pods hang but pings succeed after switching CNIs. Name the likely culprit and the fix.",
+    "Design the network personality of an 8-GPU training pod: which interface carries NCCL, which carries kubectl exec, and which plane set each up?"
+  ] }
+</script>
+
+<script>
+  const tabs = document.querySelectorAll('.tabs [role="tab"]');
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(b => b.setAttribute('aria-selected', b === btn ? 'true' : 'false'));
+      document.querySelectorAll('.tabpanel [role="tabpanel"]').forEach(p => {
+        p.hidden = (p.id !== btn.dataset.tab);
+      });
+    });
+  });
+  (function(){
+    const pop = document.createElement('div');
+    pop.id = 'glpop';
+    document.body.appendChild(pop);
+    let pinned = false;
+
+    function fill(link){
+      const id = (link.getAttribute('href')||'').slice(1);
+      const entry = document.getElementById(id);
+      if(!entry) return false;
+      const dt = entry.querySelector('dt');
+      const dd = entry.querySelector('dd');
+      if(!dt || !dd) return false;
+      const ext = dd.querySelector('a');
+      const def = dd.cloneNode(true);
+      def.querySelectorAll('a').forEach(a => a.remove());
+      pop.innerHTML =
+        '<span class="t">' + dt.textContent + '</span>' + def.innerHTML +
+        '<div class="links">' +
+        (ext ? '<a href="' + ext.href + '" target="_blank" rel="noopener">Dive deeper \u2197</a>' : '') +
+        '<a href="#' + id + '" class="jump">Full glossary \u2193</a></div>';
+      return true;
+    }
+    function show(link){
+      if(!fill(link)) return;
+      const r = link.getBoundingClientRect();
+      pop.style.display = 'block';
+      const pw = Math.min(300, window.innerWidth - 24);
+      pop.style.maxWidth = pw + 'px';
+      let x = window.scrollX + r.left;
+      const maxX = window.scrollX + window.innerWidth - pop.offsetWidth - 12;
+      if(x > maxX) x = Math.max(window.scrollX + 12, maxX);
+      pop.style.left = x + 'px';
+      pop.style.top = (window.scrollY + r.bottom + 8) + 'px';
+    }
+    function hide(){ pop.style.display = 'none'; pinned = false; }
+
+    document.querySelectorAll('a.gl').forEach(link => {
+      link.addEventListener('mouseenter', () => { if(!pinned) show(link); });
+      link.addEventListener('mouseleave', () => {
+        setTimeout(() => { if(!pinned && !pop.matches(':hover')) hide(); }, 120);
+      });
+      link.addEventListener('click', (e) => { e.preventDefault(); pinned = true; show(link); });
+    });
+    pop.addEventListener('mouseleave', () => { if(!pinned) hide(); });
+    pop.addEventListener('click', (e) => { if(e.target.classList.contains('jump')) hide(); });
+    document.addEventListener('click', (e) => {
+      if(pinned && !pop.contains(e.target) && !e.target.closest('a.gl')) hide();
+    });
+    window.addEventListener('scroll', () => { if(!pinned) hide(); }, {passive:true});
+  })();
+</script>
+</body>
+</html>

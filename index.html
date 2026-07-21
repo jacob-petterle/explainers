@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Explainers — A Field Guide to the Stack</title>
+<meta name="description" content="A personal collection of technical explainers — infrastructure, networking, bare metal, observability, and data systems, explained from first principles.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAFAF6; --ink:#17191B;
+    --copper:#B0632F; --copper-soft:#F4E4D3;
+    --solder:#0E5138; --solder-soft:#E3EEE7;
+    --blue:#1E4E79; --blue-soft:#E1EAF2;
+    --rule:#D8D8CE; --rule-dark:#9A9C92; --dim:#63665C;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;}
+  @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}}
+  body{background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+  .sheet{max-width:1080px;margin:0 auto;padding:0 28px 96px;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  h1,h2,h3{font-family:'IBM Plex Sans Condensed',sans-serif;line-height:1.12;}
+
+  header{border-bottom:3px solid var(--ink);padding:26px 0 22px;}
+  .doc-line{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--rule);padding-bottom:12px;margin-bottom:24px;}
+  .doc-line .std{color:var(--copper);font-weight:600;}
+  .masthead{display:flex;gap:32px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;}
+  h1{font-size:clamp(36px,5.6vw,58px);font-weight:700;letter-spacing:-.01em;}
+  h1 .amp{color:var(--copper);}
+  .subtitle{max-width:600px;margin-top:14px;font-size:17.5px;color:#2E312B;}
+  .spec-box{border:1.5px solid var(--ink);min-width:250px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  .spec-box div{display:flex;justify-content:space-between;gap:18px;padding:7px 12px;border-bottom:1px solid var(--rule);}
+  .spec-box div:last-child{border-bottom:0;}
+  .spec-box b{font-weight:600;text-align:right;}
+  .spec-box .k{color:var(--dim);}
+
+  section{padding:48px 0 4px;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1.5px solid var(--ink);padding-bottom:10px;margin-bottom:26px;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--paper);background:var(--ink);padding:3px 9px;}
+  h2{font-size:clamp(22px,3.2vw,30px);font-weight:700;}
+  .sec-count{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  @media(max-width:760px){.grid{grid-template-columns:1fr;}}
+  a.card{display:block;border:1.5px solid var(--ink);background:#fff;text-decoration:none;color:inherit;transition:transform .12s ease,box-shadow .12s ease;box-shadow:3px 3px 0 rgba(23,25,27,.10);}
+  a.card:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 rgba(176,99,47,.22);}
+  a.card:focus-visible{outline:2px solid var(--copper);outline-offset:3px;}
+  .card .tag{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;padding:7px 14px;border-bottom:1.5px solid var(--ink);display:flex;justify-content:space-between;align-items:center;background:var(--copper-soft);color:var(--copper);}
+  .card .body{padding:15px 16px 17px;}
+  .card h3{font-size:19px;font-weight:700;margin-bottom:7px;}
+  .card p{font-size:14px;color:#33362F;line-height:1.5;}
+  .card .arrow{font-family:'IBM Plex Mono',monospace;font-weight:600;}
+
+  /* per-category accent */
+  .net .tag{background:var(--blue-soft);color:var(--blue);}
+  .metal .tag{background:var(--copper-soft);color:var(--copper);}
+  .obs .tag{background:var(--solder-soft);color:var(--solder);}
+  .data .tag{background:#EFE7D6;color:#7A5A12;}
+
+  footer{margin-top:64px;border-top:3px solid var(--ink);padding-top:20px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  footer a{color:var(--copper);font-weight:600;}
+</style>
+</head>
+<body>
+<div class="sheet">
+  <header>
+    <div class="doc-line">
+      <span>Personal Field Guide &middot; Technical Explainers</span>
+      <span class="std">Maintained by Jacob Petterle</span>
+      <span>Rev. 2026.07</span>
+    </div>
+    <div class="masthead">
+      <div>
+        <h1>EXPLAINERS<span class="amp">:</span> A FIELD GUIDE TO THE STACK</h1>
+        <p class="subtitle">A growing collection of technical explainers — infrastructure, networking, bare metal, observability, and data systems — each one worked out from first principles until it actually made sense. Written to be re-read.</p>
+      </div>
+      <div class="spec-box" aria-label="Collection reference">
+        <div><span class="k">Format</span><b>self-contained HTML</b></div>
+        <div><span class="k">Entries</span><b>12 &amp; counting</b></div>
+        <div><span class="k">Themes</span><b>4</b></div>
+        <div><span class="k">Depth</span><b>first-principles</b></div>
+      </div>
+    </div>
+  </header>
+
+  <section id="networking" class="net">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Networking &amp; the Fabric</h2><span class="sec-count">4 entries</span></div>
+    <div class="grid">
+      <a class="card" href="hedgehog-fabric-explainer.html">
+        <div class="tag"><span>Network Fabric</span><span class="arrow">→</span></div>
+        <div class="body"><h3>Hedgehog Open Network Fabric</h3><p>An open-source Kubernetes operator that turns a pile of whitebox SONiC switches into a cloud-style network — VPCs, tenant isolation, and zero-touch ops for AI clusters on hardware you own.</p></div>
+      </a>
+      <a class="card" href="hedgehog-tenant-isolation.html">
+        <div class="tag"><span>Multi-tenancy</span><span class="arrow">→</span></div>
+        <div class="body"><h3>Hedgehog &amp; Tenant Isolation</h3><p>How a Kubernetes YAML file becomes a hardware-enforced private network — multi-tenancy for bare-metal clouds, where you can't trust a single byte of software on the tenant's server.</p></div>
+      </a>
+      <a class="card" href="k8s-and-the-packet.html">
+        <div class="tag"><span>Data Plane</span><span class="arrow">→</span></div>
+        <div class="body"><h3>K8s &amp; the Packet</h3><p>Kubernetes never touches your traffic. It programs the machines that do. Once you see that, "does bare metal route through Kubernetes?" answers itself.</p></div>
+      </a>
+      <a class="card" href="roce-and-the-switch.html">
+        <div class="tag"><span>RDMA / GPU</span><span class="arrow">→</span></div>
+        <div class="body"><h3>RoCE &amp; the Switch</h3><p>How GPUs read each other's memory straight over Ethernet — and what the switch in the middle is actually doing (spoiler: it is not "transparent").</p></div>
+      </a>
+    </div>
+  </section>
+
+  <section id="bare-metal" class="metal">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Bare Metal &amp; Provisioning</h2><span class="sec-count">4 entries</span></div>
+    <div class="grid">
+      <a class="card" href="bmc-redfish-explainer.html">
+        <div class="tag"><span>Out-of-band Mgmt</span><span class="arrow">→</span></div>
+        <div class="body"><h3>BMC &amp; Redfish</h3><p>The tiny always-on computer inside every server — and the modern REST API used to command entire fleets of them.</p></div>
+      </a>
+      <a class="card" href="metal3-explainer.html">
+        <div class="tag"><span>Provisioning</span><span class="arrow">→</span></div>
+        <div class="body"><h3>Metal³</h3><p>"Metal Kubed." Physical servers become Kubernetes resources: <code>kubectl apply</code> a YAML file, and a real machine in a real rack powers on, wipes itself, and installs your image.</p></div>
+      </a>
+      <a class="card" href="fleet-management-explainer.html">
+        <div class="tag"><span>Fleet Ops</span><span class="arrow">→</span></div>
+        <div class="body"><h3>Fleet Management</h3><p>Redfish gives every server the same API. These are the tools that stand on top of it — and the honest answer to "can I see my whole fleet in one place?"</p></div>
+      </a>
+      <a class="card" href="netbox-explainer.html">
+        <div class="tag"><span>Source of Truth</span><span class="arrow">→</span></div>
+        <div class="body"><h3>NetBox</h3><p>The database of what your infrastructure is supposed to look like. It never touches a machine — and that's exactly why everything else depends on it.</p></div>
+      </a>
+    </div>
+  </section>
+
+  <section id="observability" class="obs">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Observability</h2><span class="sec-count">2 entries</span></div>
+    <div class="grid">
+      <a class="card" href="prometheus-explainer.html">
+        <div class="tag"><span>Metrics</span><span class="arrow">→</span></div>
+        <div class="body"><h3>Prometheus</h3><p>The metrics engine of modern infrastructure: it goes out, asks every system "how are you?" on a schedule, remembers the answers as time series, and raises the alarm when they go wrong.</p></div>
+      </a>
+      <a class="card" href="grafana-explainer.html">
+        <div class="tag"><span>Dashboards</span><span class="arrow">→</span></div>
+        <div class="body"><h3>Grafana</h3><p>The open-source glass over your infrastructure: it doesn't store your data — it queries every system where it lives and composes the answers into dashboards, alerts, and custom UIs.</p></div>
+      </a>
+    </div>
+  </section>
+
+  <section id="data" class="data">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Data &amp; Workflow</h2><span class="sec-count">2 entries</span></div>
+    <div class="grid">
+      <a class="card" href="kafka-iceberg-explainer.html">
+        <div class="tag"><span>Streaming / Lakehouse</span><span class="arrow">→</span></div>
+        <div class="body"><h3>Kafka + Iceberg</h3><p>Hot systems keep weeks; the lakehouse keeps years. Kafka is the conveyor belt that never drops anything; Iceberg turns plain files in object storage into real, queryable tables.</p></div>
+      </a>
+      <a class="card" href="temporal-explainer.html">
+        <div class="tag"><span>Durable Execution</span><span class="arrow">→</span></div>
+        <div class="body"><h3>Temporal</h3><p>Write multi-step business logic as ordinary code, and the platform guarantees it runs to completion — through crashes, deploys, and outages — whether it takes seconds or months.</p></div>
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    <span>EXPLAINERS &middot; a personal field guide</span>
+    <span>New entries added as I learn. Source on <a href="https://github.com/jacob-petterle/explainers">GitHub</a>.</span>
+  </footer>
+</div>
+</body>
+</html>

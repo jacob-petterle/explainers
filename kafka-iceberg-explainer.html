@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kafka + Iceberg — The Memory of the Fleet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAFAF6; --ink:#17191B;
+    --copper:#B0632F; --copper-soft:#F4E4D3;
+    --solder:#0E5138; --solder-soft:#E3EEE7;
+    --blue:#1E4E79; --blue-soft:#E1EAF2;
+    --cf:#8A5A00; --cf-soft:#FBF3DD;
+    --rule:#D8D8CE; --rule-dark:#9A9C92; --dim:#63665C;
+    --code-bg:#1E211F; --code-ink:#E8EAE2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;}
+  @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}}
+  body{background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+  .sheet{max-width:1080px;margin:0 auto;padding:0 28px 80px;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .mono, code, a.x, a.gl{overflow-wrap:anywhere;}
+  h1,h2,h3{font-family:'IBM Plex Sans Condensed',sans-serif;line-height:1.12;}
+  a.x{color:var(--copper);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;text-decoration-color:#D9B08C;}
+  a.x:hover{text-decoration-color:var(--copper);}
+  a.x::after{content:"\2197";font-size:.72em;vertical-align:super;margin-left:1px;}
+  a.gl{color:inherit;text-decoration:underline dotted 1.5px var(--rule-dark);text-underline-offset:3px;cursor:help;}
+  a.gl:hover{text-decoration-color:var(--copper);color:var(--copper);}
+  a:focus-visible{outline:2px solid var(--copper);outline-offset:2px;}
+  #glpop{position:absolute;z-index:50;max-width:300px;background:var(--ink);color:var(--paper);padding:12px 14px;font-size:13.5px;line-height:1.55;border:1.5px solid var(--copper);box-shadow:4px 4px 0 rgba(23,25,27,.18);display:none;}
+  #glpop .t{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#E8B380;display:block;margin-bottom:4px;letter-spacing:.05em;text-transform:uppercase;}
+  #glpop .links{margin-top:9px;display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;font-family:'IBM Plex Mono',monospace;}
+  #glpop a{color:#E8B380;font-weight:600;text-decoration:underline;text-underline-offset:2px;}
+  #glpop .mono{color:#D9C87C;}
+  header{border-bottom:3px solid var(--ink);padding:26px 0 22px;}
+  .doc-line{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--rule);padding-bottom:12px;margin-bottom:24px;}
+  .doc-line .std{color:var(--copper);font-weight:600;}
+  .masthead{display:flex;gap:32px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;}
+  h1{font-size:clamp(34px,5.4vw,54px);font-weight:700;letter-spacing:-.01em;}
+  h1 .amp{color:var(--copper);}
+  .subtitle{max-width:580px;margin-top:12px;font-size:17px;color:#2E312B;}
+  .spec-box{border:1.5px solid var(--ink);min-width:270px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  .spec-box div{display:flex;justify-content:space-between;gap:18px;padding:7px 12px;border-bottom:1px solid var(--rule);}
+  .spec-box div:last-child{border-bottom:0;}
+  .spec-box b{font-weight:600;text-align:right;}
+  .spec-box .k{color:var(--dim);}
+  section{padding:52px 0 8px;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1.5px solid var(--ink);padding-bottom:10px;margin-bottom:28px;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--paper);background:var(--ink);padding:3px 9px;}
+  h2{font-size:clamp(24px,3.4vw,32px);font-weight:700;}
+  h3{font-size:18px;font-weight:600;margin-bottom:8px;}
+  p{margin-bottom:14px;max-width:74ch;}
+  .lead{font-size:17.5px;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+  @media(max-width:760px){.two-col{grid-template-columns:1fr;}}
+  .def-card{border:1.5px solid var(--ink);background:#fff;}
+  .def-card .tag{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;border-bottom:1.5px solid var(--ink);display:flex;justify-content:space-between;}
+  .def-card.a .tag{background:var(--solder-soft);color:var(--solder);}
+  .def-card.b .tag{background:var(--blue-soft);color:var(--blue);}
+  .def-card .body{padding:16px 18px 6px;}
+  .def-card .one-liner{font-family:'IBM Plex Sans Condensed';font-size:21px;font-weight:600;margin-bottom:10px;}
+  .scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0;border:1.5px solid var(--ink);margin:20px 0 22px;}
+  .scenarios div{padding:14px 16px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);}
+  .scenarios .q{font-family:'IBM Plex Sans Condensed';font-weight:600;font-size:16.5px;display:block;margin-bottom:4px;}
+  .scenarios .a{font-size:13.5px;color:var(--dim);}
+  .callout{border-left:4px solid var(--copper);background:var(--copper-soft);padding:14px 18px;margin:18px 0;max-width:78ch;font-size:15.5px;}
+  .callout.green{border-left-color:var(--solder);background:var(--solder-soft);}
+  .callout b{font-weight:600;}
+  .pins{list-style:none;margin:6px 0 16px;}
+  .pins li{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--rule);font-size:15px;max-width:74ch;}
+  .pins li:last-child{border-bottom:0;}
+  .pins .pin{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--copper);white-space:nowrap;min-width:110px;letter-spacing:.04em;}
+  .diagram-wrap{border:1.5px solid var(--ink);background:#fff;padding:10px 6px 2px;overflow-x:auto;}
+  .diagram-wrap svg{display:block;min-width:760px;width:100%;height:auto;}
+  .fig-cap{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);padding:10px 4px 8px;border-top:1px solid var(--rule);margin-top:8px;}
+  .blk{transition:filter .15s ease;}
+  .blk:hover{filter:brightness(0.96);}
+  .tabs{display:flex;gap:0;border:1.5px solid var(--ink);border-bottom:0;flex-wrap:wrap;}
+  .tabs button{font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.03em;padding:10px 16px;background:var(--paper);border:0;border-right:1px solid var(--rule);cursor:pointer;color:var(--dim);}
+  .tabs button:focus-visible{outline:2px solid var(--copper);outline-offset:-2px;}
+  .tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper);}
+  .tabpanel{border:1.5px solid var(--ink);}
+  .tabpanel pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.8px;line-height:1.7;padding:18px 20px;overflow-x:auto;margin:0;}
+  .tabpanel .note{padding:12px 16px;font-size:14px;border-top:1.5px solid var(--ink);background:#fff;}
+  .verb{color:#E8B380;font-weight:600;}
+  .key{color:#8FBF9F;}
+  .str{color:#D9C87C;}
+  .cm2{color:#7B7F76;}
+  table{width:100%;border-collapse:collapse;border:1.5px solid var(--ink);font-size:14.5px;min-width:640px;}
+  thead th{background:var(--ink);color:var(--paper);text-align:left;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:10px 14px;font-weight:600;}
+  tbody td{padding:11px 14px;border-bottom:1px solid var(--rule);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody td:first-child{font-weight:600;white-space:nowrap;}
+  .table-scroll{overflow-x:auto;}
+  td .m{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:block;margin-top:2px;}
+  .apps{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px;}
+  .app{border:1.5px solid var(--ink);padding:18px 20px 14px;background:#fff;position:relative;}
+  .app::before{content:attr(data-ref);position:absolute;top:14px;right:16px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--rule-dark);letter-spacing:.06em;}
+  .app h3{font-size:19px;}
+  .app p{font-size:14.5px;margin-bottom:8px;}
+  .app .tools{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--copper);letter-spacing:.02em;}
+  .gotchas{counter-reset:g;max-width:78ch;}
+  .gotchas li{list-style:none;padding:14px 0 14px 52px;position:relative;border-bottom:1px solid var(--rule);}
+  .gotchas li::before{counter-increment:g;content:counter(g,decimal-leading-zero);position:absolute;left:0;top:16px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);}
+  .gotchas b{font-weight:600;}
+  .lab{border:1.5px solid var(--ink);background:#fff;margin-bottom:26px;}
+  .lab-head{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:baseline;padding:12px 18px;border-bottom:1.5px solid var(--ink);background:var(--solder-soft);}
+  .lab-head h3{font-size:20px;margin:0;color:var(--solder);}
+  .lab-head .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);}
+  .lab-body{padding:16px 18px 6px;}
+  .steps{list-style:none;counter-reset:s;}
+  .steps > li{counter-increment:s;position:relative;padding:12px 0 12px 56px;border-bottom:1px dashed var(--rule);}
+  .steps > li:last-child{border-bottom:0;}
+  .steps > li::before{content:"S" counter(s);position:absolute;left:0;top:14px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:var(--paper);background:var(--solder);padding:2px 8px;}
+  .steps p{font-size:15px;margin-bottom:6px;}
+  .steps pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.6px;line-height:1.7;padding:12px 16px;overflow-x:auto;margin:8px 0 4px;}
+  .steps .expect{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--solder);margin-top:4px;}
+  .glossary{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;}
+  @media(max-width:760px){.glossary{grid-template-columns:1fr;}}
+  .glossary dl{margin:0;}
+  .glossary .entry{padding:11px 0;border-bottom:1px dashed var(--rule);}
+  .glossary dt{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);letter-spacing:.03em;}
+  .glossary dd{font-size:14px;color:#2E312B;margin-top:2px;}
+  .reading{list-style:none;max-width:80ch;}
+  .reading li{padding:12px 0;border-bottom:1px dashed var(--rule);font-size:15px;}
+  .reading li:last-child{border-bottom:0;}
+  .reading .why{display:block;font-size:13.5px;color:var(--dim);margin-top:2px;}
+  footer{margin-top:64px;border-top:3px solid var(--ink);padding-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  @media (max-width:640px){
+    .sheet{padding:0 16px 60px;}
+    .steps > li{padding:40px 0 12px 0;}
+    .steps > li::before{top:10px;}
+    .gotchas li{padding:38px 0 14px 0;}
+    .gotchas li::before{top:12px;}
+    .pins li{display:block;}
+    .pins .pin{display:block;min-width:0;margin-bottom:2px;}
+    .steps pre,.tabpanel pre{font-size:11.8px;}
+    .tabs button{flex:1 1 auto;text-align:center;}
+    .spec-box{width:100%;min-width:0;}
+    .masthead{align-items:stretch;}
+    .fig-cap::before{content:"SWIPE \2192  ·  ";color:var(--copper);font-weight:600;}
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <div class="doc-line">
+      <span>Hardware Management &middot; Technical Explainer</span>
+      <span class="std">Projects: Apache Kafka + Apache Iceberg</span>
+      <span>Deep Dive — The Lakehouse Pipeline</span>
+    </div>
+    <div class="masthead">
+      <div>
+        <h1>KAFKA <span class="amp">+</span> ICEBERG: THE MEMORY OF THE FLEET</h1>
+        <p class="subtitle">Hot systems keep weeks; the lakehouse keeps years. Kafka is the conveyor belt that never drops anything; Iceberg turns plain files in object storage into real, queryable tables.</p>
+      </div>
+      <div class="spec-box" aria-label="Quick reference">
+        <div><span class="k">Kafka</span><b>distributed append-only log</b></div>
+        <div><span class="k">Mode</span><b>KRaft (ZooKeeper retired, 4.x)</b></div>
+        <div><span class="k">Iceberg</span><b>open table format on object storage</b></div>
+        <div><span class="k">The bridge</span><b>Kafka Connect Iceberg sink</b></div>
+        <div><span class="k">Query with</span><b>Spark · Trino · DuckDB · R2 SQL</b></div>
+        <div><span class="k">Guarantee</span><b>exactly-once into tables</b></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 1 WHAT -->
+  <section id="what">
+    <div class="sec-head"><span class="sec-num">1</span><h2>What they are</h2></div>
+    <div class="two-col">
+      <div class="def-card a">
+        <div class="tag"><span>The mover</span><span>Kafka</span></div>
+        <div class="body">
+          <p class="one-liner">A conveyor belt with a memory.</p>
+          <p>Kafka is a durable, append-only <a class="gl" href="#g-topic">log</a>, split into <a class="gl" href="#g-partition">partitions</a> for scale. <a class="gl" href="#g-producer">Producers</a> append records; <a class="gl" href="#g-consumer">consumer groups</a> read at their own pace, each tracking an <a class="gl" href="#g-offset">offset</a> — so a slow reader never blocks a fast writer, bursts get absorbed, and multiple independent consumers replay the same stream.</p>
+          <p>Modern Kafka runs in <a class="gl" href="#g-kraft">KRaft</a> mode — the cluster manages its own metadata; ZooKeeper is gone.</p>
+        </div>
+      </div>
+      <div class="def-card b">
+        <div class="tag"><span>The organizer</span><span>Iceberg</span></div>
+        <div class="body">
+          <p class="one-liner">A database's brain grafted onto plain files.</p>
+          <p>Iceberg is a <a class="gl" href="#g-tableformat">table format</a>: your data stays as ordinary <a class="gl" href="#g-parquet">Parquet</a> files in object storage, while Iceberg's metadata layer (<a class="gl" href="#g-snapshot">snapshots</a>, manifests) plus a <a class="gl" href="#g-catalog">catalog</a> adds ACID transactions, safe schema evolution, <a class="gl" href="#g-timetravel">time travel</a>, and hidden partitioning.</p>
+          <p>Result: any SQL engine — Spark, Trino, DuckDB, Snowflake — can query the same tables. The files are yours; no engine owns them.</p>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:24px" class="lead">The relationship in one sentence: <b>Kafka moves and buffers, Iceberg organizes and remembers, and a sink connector is the bridge that turns a stream into tables — exactly once.</b></p>
+  </section>
+
+  <!-- 2 JOB -->
+  <section id="job">
+    <div class="sec-head"><span class="sec-num">2</span><h2>The job it solves</h2></div>
+    <div class="scenarios">
+      <div><span class="q">Hot store keeps weeks; you need years</span><span class="a">Metrics engines are deliberately short-horizon. The lakehouse is where "compare this June to last June" lives.</span></div>
+      <div><span class="q">Burst absorption</span><span class="a">A fleet-wide event storm can't overwhelm downstream writers — the log buffers, consumers drain at their pace.</span></div>
+      <div><span class="q">One stream, many readers</span><span class="a">The same metrics feed a table sink, an anomaly detector, and an alert enricher — independently, replayably.</span></div>
+      <div><span class="q">Correlation studies</span><span class="a">"Thermals vs job performance over six months, per hardware batch" — a SQL join over billions of rows, offline, cheap.</span></div>
+      <div><span class="q">Vendor-neutral history</span><span class="a">Open files + open format: switch query engines anytime; the data never migrates.</span></div>
+      <div><span class="q">Training data for optimization</span><span class="a">Clean, partitioned, timestamped fleet telemetry is exactly the feedstock for the models that tune it.</span></div>
+    </div>
+    <div class="callout"><b>Why not just a big database?</b> Cost and coupling. Object storage is ~10× cheaper than database disks, scales without resharding, and Iceberg keeps the data in an open format no single engine owns. Databases stay for the hot tier; the lakehouse is for the ocean.</div>
+  </section>
+
+  <!-- 3 ARCH -->
+  <section id="arch">
+    <div class="sec-head"><span class="sec-num">3</span><h2>How it works — the pipeline</h2></div>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 980 600" role="img" aria-label="Pipeline diagram. Producers on the left — a metrics remote-write adapter, edge analytics exports, and application events — write into Kafka topics shown as partitioned logs with offsets. Kafka Connect runs the Iceberg sink connector, which batches records, writes Parquet data files to object storage, and commits Iceberg snapshots through a REST catalog with exactly-once semantics. On the right, the Iceberg table layer shows the catalog pointing to metadata, manifests, and Parquet files in an R2 or S3 bucket, with query engines Spark, Trino, DuckDB and R2 SQL reading the same tables, plus a compaction job merging small files.">
+        <!-- producers -->
+        <text x="40" y="42" font-family="IBM Plex Mono" font-size="12" font-weight="600" fill="#17191B" letter-spacing="1">PRODUCERS</text>
+        <g font-family="IBM Plex Mono" font-size="10.5">
+          <g class="blk"><rect x="40" y="58" width="200" height="56" fill="#E3EEE7" stroke="#0E5138" stroke-width="1.8"/>
+            <text x="54" y="80" font-size="11" font-weight="600" fill="#17191B">metrics remote_write</text>
+            <text x="54" y="98" fill="#63665C">→ kafka adapter</text></g>
+          <g class="blk"><rect x="40" y="128" width="200" height="56" fill="#FBF3DD" stroke="#8A5A00" stroke-width="1.6"/>
+            <text x="54" y="150" font-size="11" font-weight="600" fill="#17191B">edge analytics exports</text>
+            <text x="54" y="168" fill="#63665C">nightly aggregates</text></g>
+          <g class="blk"><rect x="40" y="198" width="200" height="56" fill="#F2F4EF" stroke="#9A9C92" stroke-width="1.6"/>
+            <text x="54" y="220" font-size="11" font-weight="600" fill="#17191B">app / audit events</text>
+            <text x="54" y="238" fill="#63665C">provisioning history…</text></g>
+        </g>
+
+        <!-- kafka -->
+        <rect x="290" y="40" width="300" height="230" fill="#FFFFFF" stroke="#0E5138" stroke-width="2.4"/>
+        <rect x="290" y="40" width="300" height="36" fill="#0E5138"/>
+        <text x="440" y="64" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="17" font-weight="700" fill="#FFFFFF">KAFKA (KRaft cluster)</text>
+        <g font-family="IBM Plex Mono" font-size="10">
+          <text x="306" y="98" font-weight="600" fill="#17191B">topic: fleet.metrics</text>
+          <g class="blk"><rect x="306" y="108" width="268" height="24" fill="#E3EEE7" stroke="#0E5138" stroke-width="1.2"/>
+            <text x="314" y="124" fill="#17191B">p0 |0|1|2|3|4|5|6|7|8|9|…→</text></g>
+          <g class="blk"><rect x="306" y="138" width="268" height="24" fill="#E3EEE7" stroke="#0E5138" stroke-width="1.2"/>
+            <text x="314" y="154" fill="#17191B">p1 |0|1|2|3|4|5|6|…→</text></g>
+          <g class="blk"><rect x="306" y="168" width="268" height="24" fill="#E3EEE7" stroke="#0E5138" stroke-width="1.2"/>
+            <text x="314" y="184" fill="#17191B">p2 |0|1|2|3|4|…→</text></g>
+          <text x="306" y="216" fill="#63665C">key = serial → same node stays ordered</text>
+          <text x="306" y="234" fill="#63665C">retention: e.g. 7 days (buffer, not archive)</text>
+          <text x="306" y="252" fill="#63665C">replicated ×3 · consumers track offsets</text>
+        </g>
+        <g stroke="#0E5138" stroke-width="2" fill="none">
+          <path d="M240 86 L290 86"/><path d="M240 156 L290 156"/><path d="M240 226 L275 226 L275 200 L290 200"/>
+        </g>
+
+        <!-- connect -->
+        <g class="blk"><rect x="640" y="80" width="300" height="150" fill="#E1EAF2" stroke="#1E4E79" stroke-width="2.2"/>
+          <text x="656" y="106" font-family="IBM Plex Mono" font-size="11" font-weight="600" fill="#1E4E79" letter-spacing="1">KAFKA CONNECT — ICEBERG SINK</text>
+          <text x="656" y="130" font-family="IBM Plex Mono" font-size="10" fill="#17191B">consume → batch → write Parquet files</text>
+          <text x="656" y="148" font-family="IBM Plex Mono" font-size="10" fill="#17191B">→ commit snapshot via catalog</text>
+          <text x="656" y="172" font-family="IBM Plex Mono" font-size="10" fill="#63665C">exactly-once (coordinated commits)</text>
+          <text x="656" y="190" font-family="IBM Plex Mono" font-size="10" fill="#63665C">multi-table fan-out · schema evolution</text>
+          <text x="656" y="212" font-family="IBM Plex Mono" font-size="10" fill="#63665C">crash-safe: offsets stored in Kafka itself</text></g>
+        <path d="M590 155 L640 155" stroke="#1E4E79" stroke-width="2.2" fill="none"/>
+        <path d="M632 149 L642 155 L632 161 Z" fill="#1E4E79"/>
+
+        <!-- iceberg layer -->
+        <rect x="40" y="320" width="900" height="240" fill="#FFFFFF" stroke="#17191B" stroke-width="2"/>
+        <text x="56" y="346" font-family="IBM Plex Mono" font-size="12" font-weight="600" fill="#17191B" letter-spacing="1">THE ICEBERG TABLE (files in YOUR bucket)</text>
+        <g font-family="IBM Plex Mono" font-size="10">
+          <g class="blk"><rect x="56" y="362" width="220" height="70" fill="#F4E4D3" stroke="#B0632F" stroke-width="1.8"/>
+            <text x="70" y="386" font-size="10.5" font-weight="600" fill="#B0632F">CATALOG (REST)</text>
+            <text x="70" y="404" fill="#63665C">"where is table X's current</text>
+            <text x="70" y="420" fill="#63665C">metadata?" — the library index</text></g>
+          <g class="blk"><rect x="306" y="362" width="220" height="70" fill="#FFFFFF" stroke="#17191B" stroke-width="1.6"/>
+            <text x="320" y="386" font-size="10.5" font-weight="600" fill="#17191B">METADATA + MANIFESTS</text>
+            <text x="320" y="404" fill="#63665C">snapshots · schemas · which</text>
+            <text x="320" y="420" fill="#63665C">files hold which partitions</text></g>
+          <g class="blk"><rect x="556" y="362" width="240" height="70" fill="#F2F4EF" stroke="#9A9C92" stroke-width="1.6"/>
+            <text x="570" y="386" font-size="10.5" font-weight="600" fill="#17191B">PARQUET DATA FILES</text>
+            <text x="570" y="404" fill="#63665C">partitioned by day(ts) —</text>
+            <text x="570" y="420" fill="#63665C">columnar, compressed, open</text></g>
+          <g class="blk"><rect x="826" y="362" width="98" height="70" fill="#FBF3DD" stroke="#8A5A00" stroke-width="1.6"/>
+            <text x="838" y="390" font-size="10" font-weight="600" fill="#8A5A00">BUCKET:</text>
+            <text x="838" y="406" font-size="10" fill="#17191B">R2 / S3</text></g>
+        </g>
+        <path d="M276 397 L306 397" stroke="#9A9C92" stroke-width="1.8"/>
+        <path d="M526 397 L556 397" stroke="#9A9C92" stroke-width="1.8"/>
+        <path d="M790 230 L790 300 L490 300 L490 362" stroke="#1E4E79" stroke-width="2.2" fill="none"/>
+        <text x="500" y="296" font-family="IBM Plex Mono" font-size="9.5" font-weight="600" fill="#1E4E79">files + snapshot commits ↓</text>
+
+        <g font-family="IBM Plex Mono" font-size="10">
+          <text x="56" y="470" font-weight="600" fill="#17191B">READERS (any engine, same tables):</text>
+          <text x="56" y="492" fill="#0E5138" font-weight="600">Spark / Flink</text>
+          <text x="196" y="492" fill="#0E5138" font-weight="600">Trino</text>
+          <text x="276" y="492" fill="#0E5138" font-weight="600">DuckDB (laptop!)</text>
+          <text x="446" y="492" fill="#0E5138" font-weight="600">R2 SQL</text>
+          <text x="546" y="492" fill="#63665C">→ dashboards · notebooks · training jobs</text>
+          <text x="56" y="530" font-weight="600" fill="#B0632F">MAINTENANCE:</text>
+          <text x="186" y="530" fill="#63665C">compaction merges the sink's many small files into big ones (managed on R2 Data Catalog; a Spark job elsewhere)</text>
+        </g>
+      </svg>
+      <div class="fig-cap">FIG. 3-1 — Stream → log → sink → tables. The catalog is the linchpin: writers commit through it, readers resolve through it, and because everything underneath is plain Parquet in your bucket, no engine ever owns your history.</div>
+    </div>
+  </section>
+
+  <!-- 4 HANDS-ON -->
+  <section id="handson">
+    <div class="sec-head"><span class="sec-num">4</span><h2>Hands-on: produce, sink, query, time-travel</h2></div>
+    <div class="tabs" role="tablist" aria-label="Kafka and Iceberg examples">
+      <button role="tab" aria-selected="true" data-tab="t1">PRODUCE/CONSUME</button>
+      <button role="tab" aria-selected="false" data-tab="t2">SINK CONFIG</button>
+      <button role="tab" aria-selected="false" data-tab="t3">QUERY</button>
+      <button role="tab" aria-selected="false" data-tab="t4">TIME TRAVEL</button>
+    </div>
+    <div class="tabpanel">
+      <div id="t1" role="tabpanel">
+<pre><span class="cm2"># The whole Kafka mental model in two commands:</span>
+kafka-console-producer --topic fleet.metrics \
+  --bootstrap-server localhost:9092
+&gt; {"serial":"7X2K9M3","temp_c":46.5,"ts":"…"}
+
+kafka-console-consumer --topic fleet.metrics \
+  --from-beginning --bootstrap-server localhost:9092
+<span class="cm2"># ← replays EVERYTHING still in retention:</span>
+<span class="cm2">#   the log remembers; consumers just move a cursor</span></pre>
+        <div class="note">Design choice that matters: the record <b>key</b> (e.g. <span class="mono">serial</span>) decides the partition — same key, same partition, guaranteed order per machine. Choose keys like you choose primary keys.</div>
+      </div>
+      <div id="t2" role="tabpanel" hidden>
+<pre><span class="cm2"># Kafka Connect: the bridge is JSON config, not code</span>
+{
+  <span class="key">"connector.class"</span>:
+    <span class="str">"org.apache.iceberg.connect.IcebergSinkConnector"</span>,
+  <span class="key">"topics"</span>: <span class="str">"fleet.metrics"</span>,
+  <span class="key">"iceberg.tables"</span>: <span class="str">"fleet.metrics_raw"</span>,
+  <span class="key">"iceberg.catalog.type"</span>: <span class="str">"rest"</span>,
+  <span class="key">"iceberg.catalog.uri"</span>:  <span class="str">"https://…/catalog"</span>,
+  <span class="key">"iceberg.control.commit.interval-ms"</span>: <span class="str">"300000"</span>
+}</pre>
+        <div class="note">The sink batches records into Parquet and commits an Iceberg snapshot every interval — exactly-once, with commit coordination and multi-table fan-out built in. Crash-safe because offsets live in Kafka itself.</div>
+      </div>
+      <div id="t3" role="tabpanel" hidden>
+<pre><span class="cm2">-- Any engine, same table. The correlation study:</span>
+SELECT hw_batch,
+       avg(temp_c)             AS avg_temp,
+       avg(job_tokens_per_sec) AS perf
+FROM   fleet.metrics_raw m
+JOIN   fleet.job_stats j USING (serial, day)
+WHERE  m.day BETWEEN DATE '2026-01-01' AND DATE '2026-06-30'
+GROUP  BY hw_batch
+ORDER  BY perf DESC;
+
+<span class="cm2">-- partition pruning: only the needed day-files are read</span></pre>
+        <div class="note">Six months × whole fleet ≈ billions of rows — and it's a cheap offline query, because hidden partitioning by <span class="mono">day(ts)</span> means engines skip every file outside the range.</div>
+      </div>
+      <div id="t4" role="tabpanel" hidden>
+<pre><span class="cm2">-- Every commit is a snapshot. Query the past:</span>
+SELECT count(*) FROM fleet.metrics_raw
+  FOR TIMESTAMP AS OF TIMESTAMP '2026-07-01 00:00:00';
+
+<span class="cm2">-- inspect the table's own history:</span>
+SELECT snapshot_id, committed_at, operation
+FROM   fleet.metrics_raw.snapshots;
+
+<span class="cm2">-- and schema evolution is a metadata edit, not a rewrite:</span>
+ALTER TABLE fleet.metrics_raw ADD COLUMN gpu_power_w double;</pre>
+        <div class="note">Time travel + snapshot history is what "ACID on files" buys you: reproducible analyses ("the exact data the model trained on"), safe experiments, and painless audits.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 ALTERNATIVES -->
+  <section id="alternatives">
+    <div class="sec-head"><span class="sec-num">5</span><h2>Alternatives — the honest comparison</h2></div>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Option</th><th>What it is</th><th>Strengths</th><th>Tradeoffs</th></tr></thead>
+      <tbody>
+        <tr><td>Kafka<span class="m">the log</span></td><td>The standard distributed commit log (KRaft era)</td><td>Ubiquitous ecosystem (Connect, every client); replay; proven at absurd scale</td><td>A real stateful cluster to operate; partitions/keys demand upfront thought</td></tr>
+        <tr><td>Redpanda<span class="m">Kafka-compatible</span></td><td>C++ reimplementation of the Kafka API, single binary</td><td>Simpler ops, strong performance, same protocol/tooling</td><td>Smaller community; source-available licensing; compatibility is excellent-not-perfect</td></tr>
+        <tr><td>NATS JetStream / Pulsar<span class="m">other streams</span></td><td>Lighter messaging (NATS) / segmented-storage streaming (Pulsar)</td><td>NATS: tiny footprint; Pulsar: tiering &amp; multi-tenancy built in</td><td>Both outside the Kafka Connect ecosystem — you lose the Iceberg sink's paved road</td></tr>
+        <tr><td>Iceberg<span class="m">the table format</span></td><td>Open table spec + catalog protocol</td><td>Broadest engine support; REST catalog standard; managed options (incl. R2 Data Catalog)</td><td>Needs maintenance (compaction, snapshot expiry) and one blessed catalog</td></tr>
+        <tr><td>Delta Lake / Hudi<span class="m">rival formats</span></td><td>The other two lakehouse table formats</td><td>Delta: deepest Databricks/Spark integration; Hudi: strong upsert/CDC heritage</td><td>Gravity toward their home ecosystems; Iceberg has become the neutral-ground default</td></tr>
+        <tr><td>ClickHouse<span class="m">different philosophy</span></td><td>A blazing columnar database instead of a lake</td><td>Sub-second interactive analytics; simpler than Spark for dashboards</td><td>It's a database again — its disks, its format; less open-files neutrality (though it can read Iceberg)</td></tr>
+        <tr><td>Plain Parquet + cron<span class="m">the DIY floor</span></td><td>Dump files to a bucket on a schedule, no table format</td><td>Trivial to start</td><td>No transactions, no schema evolution, no time travel — the mess Iceberg was invented to end</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <ul class="pins" style="margin-top:20px">
+      <li><span class="pin">PICK KAFKA+ICEBERG</span>Continuous streams into an open, multi-engine, years-scale archive — the default for fleet telemetry history.</li>
+      <li><span class="pin">PICK REDPANDA</span>Same architecture, smaller ops team — if the licensing sits right with you.</li>
+      <li><span class="pin">ADD CLICKHOUSE</span>When humans need sub-second interactive slicing of the history — often <i>reading the same Iceberg tables</i>.</li>
+      <li><span class="pin">SKIP THE STREAM</span>If your only producer batches nightly anyway, write Iceberg directly (Spark/PyIceberg) and add Kafka when a second real-time consumer appears.</li>
+    </ul>
+  </section>
+
+  <!-- 6 APPS -->
+  <section id="apps">
+    <div class="sec-head"><span class="sec-num">6</span><h2>Where it earns its keep</h2></div>
+    <div class="apps">
+      <div class="app" data-ref="APP-01">
+        <h3>The metrics history tier</h3>
+        <p>Hot store keeps weeks for dashboards and alerts; remote_write → Kafka → Iceberg keeps years for trends, capacity math, and postmortems.</p>
+        <p class="tools">remote_write adapter · Iceberg sink · day(ts) partitions</p>
+      </div>
+      <div class="app" data-ref="APP-02">
+        <h3>Optimization &amp; ML feedstock</h3>
+        <p>Clean, partitioned fleet telemetry joined to workload performance — the training data for power-tuning, scheduling, and failure-prediction models.</p>
+        <p class="tools">Spark/DuckDB · reproducible via time travel</p>
+      </div>
+      <div class="app" data-ref="APP-03">
+        <h3>Event &amp; audit archive</h3>
+        <p>Provisioning events, hardware lifecycle changes, alert history — an append-only record you can replay and prove.</p>
+        <p class="tools">topics per domain · snapshot history</p>
+      </div>
+      <div class="app" data-ref="APP-04">
+        <h3>Decoupling producers from consumers</h3>
+        <p>One stream feeds the table sink, a live anomaly detector, and an enricher — each at its own pace, none aware of the others.</p>
+        <p class="tools">consumer groups · independent offsets</p>
+      </div>
+      <div class="app" data-ref="APP-05">
+        <h3>CDC into the lakehouse</h3>
+        <p>Database change streams (Debezium) flow through the same pipe — your inventory and business tables gain queryable history too.</p>
+        <p class="tools">Debezium source · Iceberg sink upsert mode</p>
+      </div>
+      <div class="app" data-ref="APP-06">
+        <h3>Multi-engine analytics on one copy</h3>
+        <p>Notebooks in DuckDB, jobs in Spark, dashboards via Trino — all against the same catalog, zero data movement between them.</p>
+        <p class="tools">REST catalog · R2 Data Catalog + R2 SQL</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 GOTCHAS -->
+  <section id="know">
+    <div class="sec-head"><span class="sec-num">7</span><h2>Things worth knowing before you lean on it</h2></div>
+    <ul class="gotchas">
+      <li><b>Kafka retention is a buffer, not the archive.</b> Default topic retention (days) exists to absorb and replay recently — the durable copy is Iceberg. Size retention to survive your longest plausible sink outage, not to hoard.</li>
+      <li><b>Partitions and keys are near-permanent decisions.</b> The key determines ordering and distribution; repartitioning later is a migration. Rule: key by the entity whose events must stay ordered (a machine's serial), and start with more partitions than brokers.</li>
+      <li><b>The small-file problem is guaranteed — schedule compaction.</b> Streaming sinks commit frequently, producing many small Parquet files that slow every query. R2 Data Catalog compacts managed tables automatically; self-managed setups run a periodic Spark/maintenance job, plus snapshot expiry so metadata doesn't grow forever.</li>
+      <li><b>One catalog to rule them all.</b> The catalog is where "the table" actually lives; two catalogs pointing at one bucket is how lakehouses corrupt. Pick one (REST-standard) early and route every writer and reader through it.</li>
+      <li><b>Monitor consumer lag like a smoke alarm.</b> Lag = how far behind a consumer group is. A silently stuck sink plus finite retention equals a hole in your history — alert on lag growth, not just failures.</li>
+      <li><b>Exactly-once has fine print.</b> The Iceberg sink coordinates commits for exactly-once <i>into tables</i>; your producers still need sane retries (idempotent producer settings) so duplicates don't enter the log upstream.</li>
+      <li><b>Schema is a contract — manage it.</b> The sink can evolve tables automatically, but garbage records evolve garbage columns. A schema registry (or strict producer validation) at the front door pays for itself the first time someone renames a field.</li>
+      <li><b>Kafka is stateful infrastructure.</b> KRaft removed ZooKeeper, not the ops: it's a replicated cluster (Strimzi operator on K8s, or managed) with disks, upgrades, and monitoring — budget for it or buy it.</li>
+    </ul>
+  </section>
+
+  <!-- 8 LAB -->
+  <section id="lab">
+    <div class="sec-head"><span class="sec-num">8</span><h2>Run it yourself</h2></div>
+    <div class="lab">
+      <div class="lab-head"><h3>LAB A — Kafka on your laptop</h3><span class="meta">~15 min · needs Docker</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li>
+            <p><b>Run a single-node KRaft broker</b> (the official image needs no ZooKeeper, no config):</p>
+            <pre>docker run -d --name kafka -p 9092:9092 apache/kafka</pre>
+          </li>
+          <li>
+            <p><b>Produce and consume.</b> Predict first: if you start the consumer with <span class="mono">--from-beginning</span> <i>after</i> producing, what appears?</p>
+            <pre>docker exec -it kafka /opt/kafka/bin/kafka-console-producer.sh \
+  --topic fleet.metrics --bootstrap-server localhost:9092
+<span class="cm2"># type a few JSON lines, Ctrl-C, then:</span>
+docker exec -it kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --topic fleet.metrics --from-beginning \
+  --bootstrap-server localhost:9092</pre>
+            <p class="expect">EXPECT: everything you typed replays — the log remembered; the consumer just moved a cursor. That's the whole durability model.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+    <div class="lab">
+      <div class="lab-head"><h3>LAB B — A lakehouse in one Python file</h3><span class="meta">~25 min · pip only, no cluster</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li>
+            <p><b>Create a local Iceberg table with PyIceberg</b> (SQLite catalog, files on disk — the real format, zero infrastructure):</p>
+            <pre>pip install "pyiceberg[sql-sqlite,pyarrow]" duckdb
+python - &lt;&lt;'EOF'
+from pyiceberg.catalog.sql import SqlCatalog
+import pyarrow as pa
+cat = SqlCatalog("lab", uri="sqlite:///cat.db",
+                 warehouse="file://./warehouse")
+cat.create_namespace("fleet")
+t = cat.create_table("fleet.metrics", schema=pa.schema(
+    [("serial", pa.string()), ("temp_c", pa.float64())]))
+t.append(pa.table({"serial":["7X2K9M3","8Y3L0N4"],
+                   "temp_c":[46.5, 41.2]}))
+EOF</pre>
+            <p class="expect">EXPECT: a ./warehouse folder containing Parquet data files AND a metadata/ tree — Iceberg's anatomy, inspectable with ls.</p>
+          </li>
+          <li>
+            <p><b>Query the same table from a different engine</b> — the open-format promise, demonstrated:</p>
+            <pre>python - &lt;&lt;'EOF'
+from pyiceberg.catalog.sql import SqlCatalog
+import duckdb
+t = SqlCatalog("lab", uri="sqlite:///cat.db",
+               warehouse="file://./warehouse").load_table("fleet.metrics")
+print(duckdb.sql("SELECT * FROM t.scan().to_arrow() tbl"))
+EOF</pre>
+            <p class="expect">EXPECT: your rows back via DuckDB. Append more rows and re-query; then peek at t.history() — snapshots accumulating.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+    <div class="lab">
+      <div class="lab-head"><h3>LAB C — The real bucket (managed catalog)</h3><span class="meta">~30 min · a Cloudflare account (or any S3+REST catalog)</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li>
+            <p><b>Enable a managed Iceberg catalog on an R2 bucket</b> and point PyIceberg at the catalog URI it prints:</p>
+            <pre>npx wrangler r2 bucket create fleet-lake
+npx wrangler r2 bucket catalog enable fleet-lake</pre>
+            <p style="font-size:13.5px;color:var(--dim)">Auth and connection details in the <a class="x" href="https://developers.cloudflare.com/r2/data-catalog/" target="_blank" rel="noopener">R2 Data Catalog docs</a>. Repeat Lab B's write/read against it — same code, real object storage, compaction managed for you.</p>
+          </li>
+          <li><p><b>Production shape from here:</b> Kafka via the <a class="x" href="https://strimzi.io" target="_blank" rel="noopener">Strimzi operator</a> on your management cluster, the <a class="x" href="https://iceberg.apache.org/docs/latest/kafka-connect/" target="_blank" rel="noopener">Iceberg sink connector</a> on Kafka Connect pointing at that catalog, a lag alert on the sink's consumer group, and a weekly snapshot-expiry job. That's the whole memory of the fleet, running.</p></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 GLOSSARY -->
+  <section id="glossary">
+    <div class="sec-head"><span class="sec-num">9</span><h2>Glossary &amp; further reading</h2></div>
+    <div class="glossary">
+      <dl>
+        <div class="entry" id="g-topic"><dt>Topic / log</dt><dd>Kafka's unit of organization: a named, durable, append-only sequence of records. Writers append; readers never remove.</dd></div>
+        <div class="entry" id="g-partition"><dt>Partition</dt><dd>A topic's shards — each an ordered log. Order is guaranteed within a partition only; the record key decides which partition.</dd></div>
+        <div class="entry" id="g-offset"><dt>Offset</dt><dd>A consumer's bookmark: the position in a partition it has read to. Rewind it and the past replays.</dd></div>
+        <div class="entry" id="g-producer"><dt>Producer / consumer group</dt><dd>Writers, and named teams of readers that split partitions among themselves — each group gets the full stream independently.</dd></div>
+        <div class="entry" id="g-kraft"><dt>KRaft</dt><dd>Kafka's built-in Raft-based metadata quorum — the modern mode; ZooKeeper is fully retired as of Kafka 4.x.</dd></div>
+        <div class="entry" id="g-connect"><dt>Kafka Connect</dt><dd>The config-driven integration runtime: connectors (like the Iceberg sink) run as fault-tolerant tasks, offsets tracked in Kafka itself.</dd></div>
+        <div class="entry" id="g-lag"><dt>Consumer lag</dt><dd>How far a consumer group trails the log's head — the health metric for any pipeline riding on Kafka.</dd></div>
+      </dl>
+      <dl>
+        <div class="entry" id="g-tableformat"><dt>Table format</dt><dd>A spec that makes files in object storage behave like a database table: schema, transactions, and file tracking. Iceberg is the neutral-ground standard.</dd></div>
+        <div class="entry" id="g-parquet"><dt>Parquet</dt><dd>The columnar file format underneath: compressed, typed, readable by every analytics engine.</dd></div>
+        <div class="entry" id="g-snapshot"><dt>Snapshot / manifest</dt><dd>Each commit produces a snapshot — a metadata tree listing exactly which data files constitute the table at that moment. The basis of ACID and time travel.</dd></div>
+        <div class="entry" id="g-catalog"><dt>Catalog (REST)</dt><dd>The index that maps table names to current metadata — the single place writers commit through and readers resolve through. R2 Data Catalog is a managed one built into a bucket. <a class="x" href="https://developers.cloudflare.com/r2/data-catalog/" target="_blank" rel="noopener">docs</a></dd></div>
+        <div class="entry" id="g-timetravel"><dt>Time travel</dt><dd>Querying a table as of a past snapshot or timestamp — reproducibility for audits and ML training runs.</dd></div>
+        <div class="entry" id="g-compaction"><dt>Compaction</dt><dd>Maintenance that rewrites many small files into few large ones (and expires old snapshots) — the tax streaming ingestion pays for query speed.</dd></div>
+        <div class="entry" id="g-hiddenpart"><dt>Hidden partitioning</dt><dd>Iceberg partitions by transforms like day(ts) without polluting your schema — queries prune files automatically, and the partitioning can evolve later.</dd></div>
+      </dl>
+    </div>
+    <h3 style="margin-top:36px;border-top:1.5px solid var(--ink);padding-top:18px">Further reading — where to go deeper</h3>
+    <ul class="reading">
+      <li><a class="x" href="https://kafka.apache.org/documentation/" target="_blank" rel="noopener">Kafka documentation</a><span class="why">The "Design" section is the best short read on why the log abstraction works — worth it even if you never tune a broker.</span></li>
+      <li><a class="x" href="https://iceberg.apache.org/docs/latest/" target="_blank" rel="noopener">Iceberg documentation</a><span class="why">Spec, catalogs, and maintenance guides — the "Reliability" and "Maintenance" pages cover compaction and snapshot expiry.</span></li>
+      <li><a class="x" href="https://iceberg.apache.org/docs/latest/kafka-connect/" target="_blank" rel="noopener">Iceberg Kafka Connect sink</a><span class="why">The bridge itself: exactly-once semantics, commit coordination, multi-table fan-out, and every config knob.</span></li>
+      <li><a class="x" href="https://developers.cloudflare.com/r2/data-catalog/" target="_blank" rel="noopener">R2 Data Catalog</a><span class="why">The managed-catalog-on-your-bucket option: zero egress, automatic compaction, standard REST interface.</span></li>
+      <li><a class="x" href="https://strimzi.io" target="_blank" rel="noopener">Strimzi</a><span class="why">The Kubernetes operator for running Kafka (and Connect) on your management cluster as declarative resources.</span></li>
+      <li><a class="x" href="https://py.iceberg.apache.org" target="_blank" rel="noopener">PyIceberg</a><span class="why">Lab B's engine — the lightest way to read and write real Iceberg tables from Python.</span></li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>SOURCES: kafka.apache.org · iceberg.apache.org · developers.cloudflare.com/r2 · strimzi.io</span>
+    <span>KAFKA + ICEBERG — DEEP DIVE</span>
+  </footer>
+</div>
+
+<script type="application/json" id="knowledge-manifest">
+{"topic":"Kafka + Iceberg (the lakehouse pipeline)",
+ "concepts":[
+  {"term":"Kafka","oneliner":"A durable append-only log: producers append, consumer groups read at their own pace via offsets; replay is free within retention."},
+  {"term":"Partition & key","oneliner":"Topics shard into partitions; the record key picks the partition — ordering is guaranteed per key, not per topic."},
+  {"term":"KRaft","oneliner":"Kafka's built-in metadata quorum; ZooKeeper is retired as of 4.x."},
+  {"term":"Retention vs archive","oneliner":"Kafka retention is a days-scale buffer sized to survive sink outages; Iceberg is the durable copy."},
+  {"term":"Iceberg","oneliner":"A table format: plain Parquet files plus a metadata/snapshot layer and a catalog = ACID tables any engine can query."},
+  {"term":"Catalog","oneliner":"The index mapping table names to current metadata — one catalog per lakehouse, or chaos."},
+  {"term":"Snapshot / time travel","oneliner":"Every commit is a snapshot; query the table as of any past moment for audits and reproducible ML."},
+  {"term":"Kafka Connect Iceberg sink","oneliner":"Config-driven bridge: batches the stream into Parquet and commits snapshots exactly-once, offsets stored in Kafka."},
+  {"term":"Compaction","oneliner":"Streaming creates many small files; scheduled rewrites (or R2's managed compaction) keep queries fast."},
+  {"term":"Consumer lag","oneliner":"How far the sink trails the log head — the smoke alarm; lag + finite retention = holes in history."}],
+ "mechanisms":[
+  "remote_write → adapter → topic (keyed by serial) → Connect sink batches → Parquet files written → snapshot committed via catalog → engines query with partition pruning",
+  "Sink crash → restarts from offsets in Kafka → coordinated commit ensures no duplicate rows in tables",
+  "Schema change → sink evolves table metadata; old snapshots still readable at their own schema"],
+ "scenarios":[
+  "The sink was down for 10 days and topic retention is 7 — what happened to your history and which two settings govern it?",
+  "Queries got 8× slower after a month of streaming — diagnose and name the two maintenance jobs missing.",
+  "A teammate proposes pointing Spark at the bucket path directly, bypassing the catalog — what breaks and why?",
+  "Design the key for topic fleet.metrics so one machine's readings stay ordered but load spreads — and say what breaks if you key by rack instead."]}
+</script>
+<script>
+  const tabs = document.querySelectorAll('.tabs [role="tab"]');
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(b => b.setAttribute('aria-selected', b === btn ? 'true' : 'false'));
+      document.querySelectorAll('.tabpanel [role="tabpanel"]').forEach(p => {
+        p.hidden = (p.id !== btn.dataset.tab);
+      });
+    });
+  });
+  (function(){
+    const pop = document.createElement('div');
+    pop.id = 'glpop';
+    document.body.appendChild(pop);
+    let pinned = false;
+    function fill(link){
+      const id = (link.getAttribute('href')||'').slice(1);
+      const entry = document.getElementById(id);
+      if(!entry) return false;
+      const dt = entry.querySelector('dt');
+      const dd = entry.querySelector('dd');
+      if(!dt || !dd) return false;
+      const ext = dd.querySelector('a');
+      const def = dd.cloneNode(true);
+      def.querySelectorAll('a').forEach(a => a.remove());
+      pop.innerHTML =
+        '<span class="t">' + dt.textContent + '</span>' + def.innerHTML +
+        '<div class="links">' +
+        (ext ? '<a href="' + ext.href + '" target="_blank" rel="noopener">Dive deeper \u2197</a>' : '') +
+        '<a href="#' + id + '" class="jump">Full glossary \u2193</a></div>';
+      return true;
+    }
+    function show(link){
+      if(!fill(link)) return;
+      const r = link.getBoundingClientRect();
+      pop.style.display = 'block';
+      const pw = Math.min(300, window.innerWidth - 24);
+      pop.style.maxWidth = pw + 'px';
+      let x = window.scrollX + r.left;
+      const maxX = window.scrollX + window.innerWidth - pop.offsetWidth - 12;
+      if(x > maxX) x = Math.max(window.scrollX + 12, maxX);
+      pop.style.left = x + 'px';
+      pop.style.top = (window.scrollY + r.bottom + 8) + 'px';
+    }
+    function hide(){ pop.style.display = 'none'; pinned = false; }
+    document.querySelectorAll('a.gl').forEach(link => {
+      link.addEventListener('mouseenter', () => { if(!pinned) show(link); });
+      link.addEventListener('mouseleave', () => {
+        setTimeout(() => { if(!pinned && !pop.matches(':hover')) hide(); }, 120);
+      });
+      link.addEventListener('click', (e) => { e.preventDefault(); pinned = true; show(link); });
+    });
+    pop.addEventListener('mouseleave', () => { if(!pinned) hide(); });
+    pop.addEventListener('click', (e) => { if(e.target.classList.contains('jump')) hide(); });
+    document.addEventListener('click', (e) => {
+      if(pinned && !pop.contains(e.target) && !e.target.closest('a.gl')) hide(); });
+    window.addEventListener('scroll', () => { if(!pinned) hide(); }, {passive:true});
+  })();
+</script>
+</body>
+</html>
