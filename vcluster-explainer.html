@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>vCluster &amp; the OSS Tenancy Line — Technical Explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAFAF6;
+    --ink:#17191B;
+    --copper:#B0632F;
+    --copper-soft:#F4E4D3;
+    --solder:#0E5138;
+    --solder-soft:#E3EEE7;
+    --blue:#1E4E79;
+    --blue-soft:#E1EAF2;
+    --rule:#D8D8CE;
+    --rule-dark:#9A9C92;
+    --dim:#63665C;
+    --standby:#FBF1E4;
+    --code-bg:#1E211F;
+    --code-ink:#E8EAE2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+  }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans',system-ui,sans-serif;
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .sheet{max-width:1080px;margin:0 auto;padding:0 28px 80px;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  h1,h2,h3{font-family:'IBM Plex Sans Condensed',sans-serif;line-height:1.12;}
+
+  a.x{color:var(--copper);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;text-decoration-color:#D9B08C;}
+  a.x:hover{text-decoration-color:var(--copper);}
+  a.x::after{content:"\2197";font-size:.72em;vertical-align:super;margin-left:1px;}
+  a.gl{color:inherit;text-decoration:underline dotted 1.5px var(--rule-dark);text-underline-offset:3px;}
+  a.gl:hover{text-decoration-color:var(--copper);color:var(--copper);}
+  a:focus-visible{outline:2px solid var(--copper);outline-offset:2px;}
+
+  a.gl{cursor:help;}
+  #glpop{position:absolute;z-index:50;max-width:300px;background:var(--ink);color:var(--paper);padding:12px 14px;font-size:13.5px;line-height:1.55;border:1.5px solid var(--copper);box-shadow:4px 4px 0 rgba(23,25,27,.18);display:none;}
+  #glpop .t{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#E8B380;display:block;margin-bottom:4px;letter-spacing:.05em;text-transform:uppercase;}
+  #glpop .links{margin-top:9px;display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;font-family:'IBM Plex Mono',monospace;}
+  #glpop a{color:#E8B380;font-weight:600;text-decoration:underline;text-underline-offset:2px;}
+  #glpop .mono{color:#D9C87C;}
+
+  header{border-bottom:3px solid var(--ink);padding:26px 0 22px;}
+  .doc-line{
+    display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--dim);
+    border-bottom:1px solid var(--rule);padding-bottom:12px;margin-bottom:24px;
+  }
+  .doc-line .std{color:var(--copper);font-weight:600;}
+  .masthead{display:flex;gap:32px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;}
+  h1{font-size:clamp(36px,5.6vw,58px);font-weight:700;letter-spacing:-.01em;}
+  h1 .amp{color:var(--copper);}
+  .subtitle{max-width:560px;margin-top:12px;font-size:17px;color:#2E312B;}
+  .spec-box{border:1.5px solid var(--ink);min-width:250px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  .spec-box div{display:flex;justify-content:space-between;gap:18px;padding:7px 12px;border-bottom:1px solid var(--rule);}
+  .spec-box div:last-child{border-bottom:0;}
+  .spec-box b{font-weight:600;text-align:right;}
+  .spec-box .k{color:var(--dim);}
+
+  section{padding:52px 0 8px;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1.5px solid var(--ink);padding-bottom:10px;margin-bottom:28px;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--paper);background:var(--ink);padding:3px 9px;}
+  h2{font-size:clamp(24px,3.4vw,32px);font-weight:700;}
+  h3{font-size:18px;font-weight:600;margin-bottom:8px;}
+  p{margin-bottom:14px;max-width:74ch;}
+  .lead{font-size:17.5px;}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+  @media(max-width:760px){.two-col{grid-template-columns:1fr;}}
+
+  .def-card{border:1.5px solid var(--ink);}
+  .def-card .tag{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;border-bottom:1.5px solid var(--ink);display:flex;justify-content:space-between;}
+  .def-card.hw .tag{background:var(--solder-soft);color:var(--solder);}
+  .def-card.sw .tag{background:var(--copper-soft);color:var(--copper);}
+  .def-card .body{padding:16px 18px 6px;}
+  .def-card .one-liner{font-family:'IBM Plex Sans Condensed';font-size:21px;font-weight:600;margin-bottom:10px;}
+
+  .pins{list-style:none;margin:6px 0 16px;}
+  .pins li{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--rule);font-size:15px;max-width:74ch;}
+  .pins li:last-child{border-bottom:0;}
+  .pins .pin{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--copper);white-space:nowrap;min-width:100px;letter-spacing:.04em;}
+  .pins .pin.g{color:var(--solder);}
+
+  .scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0;border:1.5px solid var(--ink);margin:20px 0 22px;}
+  .scenarios div{padding:14px 16px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);}
+  .scenarios .q{font-family:'IBM Plex Sans Condensed';font-weight:600;font-size:16.5px;display:block;margin-bottom:4px;}
+  .scenarios .a{font-size:13.5px;color:var(--dim);}
+  .callout{border-left:4px solid var(--copper);background:var(--copper-soft);padding:14px 18px;margin:18px 0;max-width:78ch;font-size:15.5px;}
+  .callout.green{border-left-color:var(--solder);background:var(--solder-soft);}
+  .callout.blue{border-left-color:var(--blue);background:var(--blue-soft);}
+  .callout b{font-weight:600;}
+
+  .diagram-wrap{border:1.5px solid var(--ink);background:#fff;padding:10px 6px 2px;overflow-x:auto;}
+  .diagram-wrap svg{display:block;min-width:720px;width:100%;height:auto;}
+  .fig-cap{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);padding:10px 4px 2px;border-top:1px solid var(--rule);margin-top:8px;}
+  .legend{display:flex;gap:22px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--dim);padding:10px 4px 12px;}
+  .legend span{display:inline-flex;align-items:center;gap:7px;}
+  .swatch{width:22px;height:12px;display:inline-block;border:1px solid var(--rule-dark);}
+  .blk{transition:filter .15s ease;}
+  .blk:hover{filter:brightness(0.96);}
+
+  .api-grid{display:grid;grid-template-columns:340px 1fr;gap:28px;align-items:start;}
+  @media(max-width:860px){.api-grid{grid-template-columns:1fr;}}
+  .tree{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.8px;line-height:1.85;padding:18px 20px;overflow-x:auto;white-space:pre;}
+  .tree .r{color:#E8B380;}
+  .tree .c{color:#8FBF9F;}
+  .tree .cm{color:#7B7F76;}
+  .tabs{display:flex;gap:0;border:1.5px solid var(--ink);border-bottom:0;flex-wrap:wrap;}
+  .tabs button{font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.03em;padding:10px 16px;background:var(--paper);border:0;border-right:1px solid var(--rule);cursor:pointer;color:var(--dim);}
+  .tabs button:focus-visible{outline:2px solid var(--copper);outline-offset:-2px;}
+  .tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper);}
+  .tabpanel{border:1.5px solid var(--ink);}
+  .tabpanel pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.8px;line-height:1.7;padding:18px 20px;overflow-x:auto;margin:0;}
+  .tabpanel .note{padding:12px 16px;font-size:14px;border-top:1.5px solid var(--ink);background:#fff;}
+  .verb{color:#E8B380;font-weight:600;}
+  .key{color:#8FBF9F;}
+  .str{color:#D9C87C;}
+  .cm2{color:#7B7F76;}
+
+  table{width:100%;border-collapse:collapse;border:1.5px solid var(--ink);font-size:14.5px;}
+  thead th{background:var(--ink);color:var(--paper);text-align:left;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:10px 14px;font-weight:600;}
+  tbody td{padding:11px 14px;border-bottom:1px solid var(--rule);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody td:first-child{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;}
+  td.win{color:var(--solder);font-weight:500;}
+  td.warn{color:var(--copper);font-weight:500;}
+  .table-scroll{overflow-x:auto;}
+  .pick{font-family:'IBM Plex Mono',monospace;font-size:13px;margin:18px 0 6px;max-width:80ch;}
+  .pick li{list-style:none;padding:8px 0;border-bottom:1px dashed var(--rule);}
+  .pick b{color:var(--solder);font-weight:600;letter-spacing:.04em;}
+
+  .apps{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px;}
+  .app{border:1.5px solid var(--ink);padding:18px 20px 14px;background:#fff;position:relative;}
+  .app::before{content:attr(data-ref);position:absolute;top:14px;right:16px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--rule-dark);letter-spacing:.06em;}
+  .app h3{font-size:19px;padding-right:64px;}
+  .app p{font-size:14.5px;margin-bottom:8px;}
+  .app .tools{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--copper);letter-spacing:.02em;}
+  .app .verdict{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.05em;text-transform:uppercase;display:inline-block;padding:2px 8px;margin-bottom:8px;}
+  .app .verdict.buy{background:var(--copper-soft);color:var(--copper);}
+  .app .verdict.build{background:var(--blue-soft);color:var(--blue);}
+  .app .verdict.oss{background:var(--solder-soft);color:var(--solder);}
+
+  .eco{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;}
+  .eco-col{border-top:3px solid var(--ink);padding-top:12px;}
+  .eco-col h3{font-size:16px;text-transform:uppercase;letter-spacing:.04em;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--dim);}
+  .eco-col ul{list-style:none;margin-top:8px;}
+  .eco-col li{padding:7px 0;border-bottom:1px dashed var(--rule);font-size:14.5px;}
+  .eco-col li b{font-weight:600;}
+  .eco-col li span{display:block;font-size:12.5px;color:var(--dim);}
+
+  .gotchas{counter-reset:g;max-width:78ch;}
+  .gotchas li{list-style:none;padding:14px 0 14px 52px;position:relative;border-bottom:1px solid var(--rule);}
+  .gotchas li::before{counter-increment:g;content:counter(g,decimal-leading-zero);position:absolute;left:0;top:16px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);}
+  .gotchas b{font-weight:600;}
+
+  .lab{border:1.5px solid var(--ink);background:#fff;margin-bottom:26px;}
+  .lab-head{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:baseline;padding:12px 18px;border-bottom:1.5px solid var(--ink);background:var(--solder-soft);}
+  .lab-head h3{font-size:20px;margin:0;color:var(--solder);}
+  .lab-head .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);}
+  .lab-body{padding:16px 18px 6px;}
+  .steps{list-style:none;counter-reset:s;}
+  .steps > li{counter-increment:s;position:relative;padding:12px 0 12px 56px;border-bottom:1px dashed var(--rule);}
+  .steps > li:last-child{border-bottom:0;}
+  .steps > li::before{
+    content:"S" counter(s);position:absolute;left:0;top:14px;
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;
+    color:var(--paper);background:var(--solder);padding:2px 8px;
+  }
+  .steps p{font-size:15px;margin-bottom:6px;}
+  .steps pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.6px;line-height:1.7;padding:12px 16px;overflow-x:auto;margin:8px 0 4px;}
+  .steps .expect{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--solder);margin-top:4px;}
+
+  .glossary{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;}
+  @media(max-width:760px){.glossary{grid-template-columns:1fr;}}
+  .glossary dl{margin:0;}
+  .glossary .entry{padding:11px 0;border-bottom:1px dashed var(--rule);}
+  .glossary dt{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);letter-spacing:.03em;}
+  .glossary dd{font-size:14px;color:#2E312B;margin-top:2px;}
+
+  .reading{list-style:none;max-width:80ch;}
+  .reading li{padding:12px 0;border-bottom:1px dashed var(--rule);font-size:15px;}
+  .reading li:last-child{border-bottom:0;}
+  .reading .why{display:block;font-size:13.5px;color:var(--dim);margin-top:2px;}
+
+  footer{margin-top:64px;border-top:3px solid var(--ink);padding-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+
+  /* MOBILE RULES */
+  .mono, code, a.x, a.gl{overflow-wrap:anywhere;}
+  body{overflow-x:hidden;}
+  html{-webkit-text-size-adjust:100%;}
+  table{min-width:560px;}
+  @media (max-width:640px){
+    .sheet{padding:0 16px 60px;}
+    .steps > li{padding:40px 0 12px 0;}
+    .steps > li::before{top:10px;}
+    .gotchas li{padding:38px 0 14px 0;}
+    .gotchas li::before{top:12px;}
+    .pins li{display:block;}
+    .pins .pin{display:block;min-width:0;margin-bottom:2px;}
+    .tree,.tabpanel pre,.steps pre{font-size:11.8px;}
+    .tabs button{flex:1 1 auto;text-align:center;}
+    .spec-box{width:100%;min-width:0;}
+    .masthead{align-items:stretch;}
+    .fig-cap::before{content:"SWIPE \2192  ·  ";color:var(--copper);font-weight:600;}
+  }
+</style>
+
+  <!-- shipyard:meta -->
+  <meta name="description" content="What&#x27;s actually Apache 2.0, what&#x27;s license-gated, what the rest of the ecosystem offers — and exactly what a multi-tenant GPU cloud would have to build itself. Verified against the loft-sh/vcluster source, cloned 2026-07-21.">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="assets/favicon-16.png" sizes="16x16" type="image/png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="manifest" href="assets/site.webmanifest">
+  <meta name="theme-color" content="#FAFAF6">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Explainers — A Personal Field Guide">
+  <meta property="og:title" content="vCluster &amp; the OSS Tenancy Line — Technical Explainer">
+  <meta property="og:description" content="What&#x27;s actually Apache 2.0, what&#x27;s license-gated, what the rest of the ecosystem offers — and exactly what a multi-tenant GPU cloud would have to build itself. Verified against the loft-sh/vcluster source, cloned 2026-07-21.">
+  <meta property="og:url" content="https://jacob-petterle.github.io/explainers/vcluster-explainer.html">
+  <meta property="og:image" content="https://jacob-petterle.github.io/explainers/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="vCluster &amp; the OSS Tenancy Line — Technical Explainer">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="vCluster &amp; the OSS Tenancy Line — Technical Explainer">
+  <meta name="twitter:description" content="What&#x27;s actually Apache 2.0, what&#x27;s license-gated, what the rest of the ecosystem offers — and exactly what a multi-tenant GPU cloud would have to build itself. Verified against the loft-sh/vcluster source, cloned 2026-07-21.">
+  <meta name="twitter:image" content="https://jacob-petterle.github.io/explainers/assets/og.png">
+  <!-- shipyard:meta -->
+</head>
+<body>
+<div class="sheet">
+
+  <!-- ================= HEADER ================= -->
+  <header>
+    <div class="doc-line">
+      <span>Kubernetes Multi-Tenancy &middot; Technical Explainer</span>
+      <span class="std">Subject: vCluster v0.36 / Platform 4.11</span>
+      <span>Explainers &middot; Rev. 2026-07</span>
+    </div>
+    <div class="masthead">
+      <div>
+        <h1>vCLUSTER <span class="amp">&amp;</span> THE OSS LINE</h1>
+        <p class="subtitle">What's actually Apache&nbsp;2.0, what's license-gated, what the rest of the ecosystem offers — and exactly what a multi-tenant GPU cloud would have to build itself. Verified against the <span class="mono">loft-sh/vcluster</span> source, cloned 2026-07-21.</p>
+      </div>
+      <div class="spec-box" aria-label="Quick reference">
+        <div><span class="k">Project</span><b>vCluster (loft-sh/vcluster)</b></div>
+        <div><span class="k">Core license</span><b>Apache 2.0 (open-core)</b></div>
+        <div><span class="k">Stable</span><b>v0.36.0 · Platform 4.11</b></div>
+        <div><span class="k">Tiers</span><b>OSS / Free / Enterprise</b></div>
+        <div><span class="k">Free-tier cap</span><b>64 vCPU or 32 GPUs</b></div>
+        <div><span class="k">Enterprise</span><b>sales-led, per-node/yr</b></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= 1. WHAT ================= -->
+  <section id="what">
+    <div class="sec-head"><span class="sec-num">1</span><h2>What it is — the engine vs. the business</h2></div>
+    <div class="two-col">
+      <div class="def-card hw">
+        <div class="tag"><span>Open source · Apache 2.0</span><span>vcluster-oss</span></div>
+        <div class="body">
+          <p class="one-liner">A Kubernetes cluster running inside a pod.</p>
+          <p>vCluster runs a real, CNCF-conformant Kubernetes <b>API server + controller manager per tenant</b> as a pod on your host cluster, backed by SQLite (via <a class="gl" href="#g-kine">kine</a>) or your own etcd. A <a class="gl" href="#g-syncer">syncer</a> copies the few objects that must be real — pods, services, PVCs — down into a host namespace, where the host's nodes actually run them.</p>
+          <p>Tenants get their own API server, CRDs, RBAC, and versions: it feels like a dedicated cluster, at the cost of one pod, in seconds.</p>
+        </div>
+      </div>
+      <div class="def-card sw">
+        <div class="tag"><span>Commercial · license-gated</span><span>vcluster-pro + platform</span></div>
+        <div class="body">
+          <p class="one-liner">Everything that makes it a sellable cloud product.</p>
+          <p>vCluster Labs (formerly Loft Labs) monetizes the layer around the engine: the <b>Platform</b> (UI, tenant self-service, SSO, quotas, <a class="gl" href="#g-sleep">sleep mode</a>, audit), plus gated engine features — <a class="gl" href="#g-privatenodes">Private Nodes</a>, embedded etcd, <a class="gl" href="#g-hybridsched">hybrid scheduling</a>, <a class="gl" href="#g-dra">DRA</a> sync, Auto Nodes — enforced by license checks compiled into the default image.</p>
+          <p>Since Jan 2026 there's a middle "<b>Free</b>" tier: formerly-Enterprise features at $0, but license-validated and hard-capped at <b>64 vCPUs or 32 GPUs</b> — four H100 boxes.</p>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:24px" class="lead">The relationship in one sentence: <b>the OSS engine gives every tenant a control plane; the paid layer is node isolation, fleet management, and everything a customer-facing cloud needs around it.</b> Where that line falls, feature by feature, is Section 3.</p>
+  </section>
+
+  <!-- ================= 2. WHY TEMPTING ================= -->
+  <section id="job">
+    <div class="sec-head"><span class="sec-num">2</span><h2>Why it's tempting for a GPU cloud</h2></div>
+    <p class="lead">Selling Kubernetes access to customers normally forces a bad choice: shared namespaces (weak — no CRDs, no cluster-admin, one noisy API server) or a dedicated cluster per customer (strong but slow and expensive). Virtual clusters sit in between:</p>
+    <div class="scenarios">
+      <div><span class="q">Customer wants cluster-admin</span><span class="a">They get a real API server: own CRDs, operators, webhooks, any K8s version — without touching yours.</span></div>
+      <div><span class="q">Provision in seconds</span><span class="a">A tenant cluster is one pod + a namespace. No VM boot, no bare-metal churn between customers.</span></div>
+      <div><span class="q">Density pays the bills</span><span class="a">Hundreds of control planes per host cluster; idle tenants cost almost nothing (and can sleep — paid).</span></div>
+      <div><span class="q">Blast-radius containment</span><span class="a">A tenant crashing their API server or flooding etcd hurts only their vcluster, not your host control plane.</span></div>
+      <div><span class="q">GPUs stay pooled</span><span class="a">Shared GPU nodes serve many tenants; vcluster passes through <span class="mono">nvidia.com/gpu</span> requests untouched.</span></div>
+      <div><span class="q">Certified Kubernetes</span><span class="a">Tenant clusters pass CNCF conformance (and the new AI conformance) — customers keep portability.</span></div>
+    </div>
+    <div class="callout"><b>The core promise:</b> the density of namespaces with the API of dedicated clusters. The catch for a GPU cloud: <b>the isolation that makes it safe to sell, and the platform that makes it operable, are mostly not in the OSS core.</b></div>
+    <h3>What the Apache 2.0 core actually includes</h3>
+    <ul class="pins">
+      <li><span class="pin g">CONTROL PLANE</span>Per-tenant API server + controller manager (vanilla upstream K8s; the k3s distro was removed in v0.33).</li>
+      <li><span class="pin g">SYNCER</span>Bi-directional object sync for core resources: pods, services, endpoints, ConfigMaps, Secrets, PVCs, ingresses, NetworkPolicies.</li>
+      <li><span class="pin g">STORE</span>SQLite/kine default, or external etcd <i>you</i> operate. (Embedded managed etcd = gated.)</li>
+      <li><span class="pin g">SCHEDULER</span>Virtual scheduler inside the tenant cluster (<span class="mono">controlPlane.distro.k8s.scheduler.enabled</span>) with node syncing — OSS since v0.26.</li>
+      <li><span class="pin g">TENANCY MODES</span>Shared nodes and label-pinned dedicated node pools. (Tenant-joined Private Nodes = gated.)</li>
+      <li><span class="pin g">POLICY</span>Pod Security Standards enforcement, ResourceQuota / LimitRange, NetworkPolicy creation per tenant.</li>
+      <li><span class="pin g">SNAPSHOTS</span>Manual <span class="mono">vcluster snapshot</span> / restore CLI. (Scheduled/auto snapshots = gated.)</li>
+      <li><span class="pin g">EXTRAS</span>Plugin SDK, Cluster API provider, Terraform provider, <a class="x" href="https://github.com/loft-sh/vcluster" target="_blank" rel="noopener">vind</a> (vCluster-in-Docker), metrics-server integration.</li>
+    </ul>
+  </section>
+
+  <!-- ================= 3. DIAGRAM ================= -->
+  <section id="diagram">
+    <div class="sec-head"><span class="sec-num">3</span><h2>The line — what's OSS, what's gated, what's missing</h2></div>
+    <p>One picture: a host cluster running two tenant vclusters on shared GPU nodes. Green is Apache&nbsp;2.0 — yours forever. Copper is license-gated — free tier below 32 GPUs, Enterprise contract above. Blue is simply absent from the product: the parts a GPU cloud has to build (or buy elsewhere) no matter what.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 980 640" role="img" aria-label="Block diagram of a vCluster deployment for a GPU cloud. A host cluster contains two tenant vcluster pods, each with an API server, syncer, and SQLite store, running workloads on shared GPU worker nodes with one shared kernel and one shared CNI. A copper license-gated zone contains private nodes, embedded etcd, hybrid scheduling, DRA sync, CRD sync, and the vCluster Platform with UI, SSO, sleep mode and quotas. A blue zone lists what is missing entirely: metering and billing, customer portal, network fabric isolation, and GPU scheduling policy.">
+        <!-- HOST CLUSTER -->
+        <rect x="20" y="20" width="580" height="600" fill="#FFFFFF" stroke="#17191B" stroke-width="2"/>
+        <text x="36" y="46" font-family="IBM Plex Mono" font-size="13" font-weight="600" fill="#17191B" letter-spacing="1">HOST CLUSTER (YOURS — RUNS EVERYTHING)</text>
+
+        <!-- OSS domain -->
+        <rect x="40" y="64" width="540" height="300" fill="#F0F6F2" stroke="#0E5138" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="56" y="88" font-family="IBM Plex Mono" font-size="11" fill="#0E5138" letter-spacing="1">APACHE 2.0 — THE OSS ENGINE</text>
+
+        <!-- tenant A vcluster pod -->
+        <g class="blk"><rect x="60" y="104" width="240" height="150" fill="#FFFFFF" stroke="#0E5138" stroke-width="2.2"/>
+          <text x="180" y="128" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="17" font-weight="700" fill="#0E5138">TENANT A — vCLUSTER POD</text>
+          <rect x="76" y="140" width="126" height="28" fill="#FFFFFF" stroke="#17191B" stroke-width="1.5"/>
+          <text x="139" y="159" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#17191B">API SERVER</text>
+          <rect x="76" y="176" width="126" height="28" fill="#FFFFFF" stroke="#17191B" stroke-width="1.5"/>
+          <text x="139" y="195" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#17191B">CTRL MANAGER</text>
+          <rect x="76" y="212" width="126" height="28" fill="#FFFFFF" stroke="#17191B" stroke-width="1.5"/>
+          <text x="139" y="231" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#17191B">SQLITE / KINE</text>
+          <rect x="214" y="140" width="70" height="100" fill="#0E5138"/>
+          <text x="249" y="185" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#FFFFFF">SYNCER</text>
+          <text x="249" y="201" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#C9DECF">pods svc pvc</text>
+        </g>
+
+        <!-- tenant B vcluster pod -->
+        <g class="blk"><rect x="330" y="104" width="240" height="150" fill="#FFFFFF" stroke="#0E5138" stroke-width="2.2"/>
+          <text x="450" y="128" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="17" font-weight="700" fill="#0E5138">TENANT B — vCLUSTER POD</text>
+          <rect x="346" y="140" width="126" height="28" fill="#FFFFFF" stroke="#17191B" stroke-width="1.5"/>
+          <text x="409" y="159" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#17191B">API SERVER</text>
+          <rect x="346" y="176" width="126" height="28" fill="#FFFFFF" stroke="#17191B" stroke-width="1.5"/>
+          <text x="409" y="195" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#17191B">CTRL MANAGER</text>
+          <rect x="346" y="212" width="126" height="28" fill="#FFFFFF" stroke="#17191B" stroke-width="1.5"/>
+          <text x="409" y="231" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#17191B">SQLITE / KINE</text>
+          <rect x="484" y="140" width="70" height="100" fill="#0E5138"/>
+          <text x="519" y="185" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#FFFFFF">SYNCER</text>
+          <text x="519" y="201" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#C9DECF">pods svc pvc</text>
+        </g>
+
+        <!-- policy strip -->
+        <g class="blk"><rect x="60" y="280" width="510" height="56" fill="#FFFFFF" stroke="#0E5138" stroke-width="1.8"/>
+          <text x="315" y="303" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700" fill="#17191B">POLICY: POD SECURITY STD · RESOURCEQUOTA · NETWORKPOLICY</text>
+          <text x="315" y="322" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">policy, not a boundary — enforcement depends on your host CNI</text>
+        </g>
+
+        <!-- shared nodes -->
+        <rect x="40" y="384" width="540" height="216" fill="#FBF6EE" stroke="#9A9C92" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="56" y="408" font-family="IBM Plex Mono" font-size="11" fill="#63665C" letter-spacing="1">SHARED GPU WORKER NODES — WHERE TENANT PODS ACTUALLY LAND</text>
+
+        <g class="blk"><rect x="60" y="424" width="240" height="118" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+          <text x="180" y="448" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="16" font-weight="700" fill="#17191B">GPU NODE 01</text>
+          <text x="180" y="468" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">tenant A pod · tenant B pod</text>
+          <text x="180" y="486" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">8× H100 · GPU Operator (yours)</text>
+          <rect x="76" y="500" width="208" height="26" fill="#F4E4D3"/>
+          <text x="180" y="518" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#B0632F">ONE SHARED KERNEL</text>
+        </g>
+        <g class="blk"><rect x="330" y="424" width="240" height="118" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+          <text x="450" y="448" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="16" font-weight="700" fill="#17191B">GPU NODE 02</text>
+          <text x="450" y="468" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">tenant A pod · tenant B pod</text>
+          <text x="450" y="486" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">8× H100 · GPU Operator (yours)</text>
+          <rect x="346" y="500" width="208" height="26" fill="#F4E4D3"/>
+          <text x="450" y="518" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#B0632F">ONE SHARED KERNEL</text>
+        </g>
+        <text x="60" y="576" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">ONE CNI, ONE KUBELET, ONE NVLINK/PCIe FABRIC PER NODE — SOFT TENANCY</text>
+
+        <!-- syncer arrows -->
+        <g stroke="#0E5138" stroke-width="2" fill="none">
+          <path d="M249 254 L249 424"/>
+          <path d="M519 254 L519 300 L560 300 L560 400 L450 400 L450 424"/>
+        </g>
+
+        <!-- GATED ZONE -->
+        <rect x="620" y="20" width="340" height="380" fill="#FBF1E4" stroke="#B0632F" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="636" y="46" font-family="IBM Plex Mono" font-size="11" fill="#B0632F" letter-spacing="1">LICENSE-GATED — FREE (≤32 GPU) / ENTERPRISE</text>
+
+        <g class="blk"><rect x="640" y="60" width="300" height="120" fill="#FFFFFF" stroke="#B0632F" stroke-width="2.2"/>
+          <text x="790" y="84" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="17" font-weight="700" fill="#B0632F">vCLUSTER PLATFORM</text>
+          <text x="790" y="106" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">UI · templates · self-service</text>
+          <text x="790" y="124" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">SSO/OIDC · audit · project quotas</text>
+          <text x="790" y="142" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">sleep mode · auto snapshots</text>
+          <text x="790" y="160" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">license check → admin.loft.sh</text>
+        </g>
+
+        <g class="blk"><rect x="640" y="196" width="145" height="88" fill="#FFFFFF" stroke="#B0632F" stroke-width="1.8"/>
+          <text x="712" y="220" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="700" fill="#17191B">PRIVATE NODES</text>
+          <text x="712" y="238" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">tenant-joined workers</text>
+          <text x="712" y="253" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">own kubelet + CNI +</text>
+          <text x="712" y="268" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">own GPU Operator</text>
+        </g>
+        <g class="blk"><rect x="795" y="196" width="145" height="88" fill="#FFFFFF" stroke="#B0632F" stroke-width="1.8"/>
+          <text x="867" y="220" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="700" fill="#17191B">ENGINE GATES</text>
+          <text x="867" y="238" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">embedded etcd · ext. DB</text>
+          <text x="867" y="253" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">hybrid sched · DRA sync</text>
+          <text x="867" y="268" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">CRD sync · ns sync</text>
+        </g>
+        <g class="blk"><rect x="640" y="298" width="300" height="86" fill="#FFFFFF" stroke="#B0632F" stroke-width="1.8"/>
+          <text x="790" y="322" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="700" fill="#17191B">NODE &amp; NET ADD-ONS</text>
+          <text x="790" y="341" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">Auto Nodes (Karpenter) · BCM/Metal3 providers</text>
+          <text x="790" y="356" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">vNode isolation runtime (paid add-on)</text>
+          <text x="790" y="371" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">Netris tenant VPCs · standalone mode</text>
+        </g>
+
+        <!-- MISSING ZONE -->
+        <rect x="620" y="420" width="340" height="200" fill="#E1EAF2" stroke="#1E4E79" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="636" y="446" font-family="IBM Plex Mono" font-size="11" fill="#1E4E79" letter-spacing="1">NOT IN THE PRODUCT AT ALL — YOU BUILD</text>
+        <g font-family="IBM Plex Mono" font-size="11" fill="#1E4E79">
+          <text x="640" y="476">▸ METERING &amp; BILLING (vBilling = alpha)</text>
+          <text x="640" y="500">▸ CUSTOMER PORTAL / SIGNUP / PAYMENTS</text>
+          <text x="640" y="524">▸ FABRIC ISOLATION (VLAN/EVPN, IB pkeys)</text>
+          <text x="640" y="548">▸ GPU SCHED POLICY (gang, bin-pack, MIG)</text>
+          <text x="640" y="572">▸ KERNEL-LEVEL ISOLATION (Kata/gVisor)</text>
+          <text x="640" y="596">▸ SUPPORT, SLAs, ABUSE &amp; QUOTA OPS</text>
+        </g>
+
+        <!-- connector -->
+        <path d="M600 180 L620 180" stroke="#B0632F" stroke-width="2"/>
+      </svg>
+      <div class="legend">
+        <span><span class="swatch" style="background:#F0F6F2;border-color:#0E5138"></span>Apache 2.0 — free forever</span>
+        <span><span class="swatch" style="background:#FBF1E4;border-color:#B0632F"></span>license-gated (Free ≤32 GPU / Enterprise)</span>
+        <span><span class="swatch" style="background:#E1EAF2;border-color:#1E4E79"></span>absent — build or buy elsewhere</span>
+      </div>
+      <div class="fig-cap">FIG. 3-1 — The OSS engine (green) gives every tenant a control plane on your shared nodes. Nearly everything that hardens or operationalizes it (copper) is gated; the customer-facing cloud layer (blue) doesn't exist in any tier.</div>
+    </div>
+    <div class="callout"><b>Read the copper column as a price list.</b> vCluster Labs' own Free-tier announcement says the quiet part out loud: features stay closed because otherwise <i>"many enterprises would build around the open source project instead of purchasing"</i> — and it would <i>"enable competitors."</i> A GPU cloud is precisely the persona that boundary is designed to charge.</div>
+  </section>
+
+  <!-- ================= 4. THE GATE IN CODE ================= -->
+  <section id="api">
+    <div class="sec-head"><span class="sec-num">4</span><h2>The license boundary, verified in source</h2></div>
+    <p class="lead">This isn't marketing-page archaeology — the gate is a function. <span class="mono">config/config.go</span> in the repo (cloned today, commit <span class="mono">717d0ee1</span>) decides whether your <span class="mono">vcluster.yaml</span> trips the pro check, and the Helm chart ships the commercial image <b>by default</b>.</p>
+    <div class="api-grid">
+      <div>
+        <div class="tree">loft-sh/vcluster (v0.36)
+├── <span class="r">config/config.go</span>
+│   └── IsProFeatureEnabled()
+│       <span class="cm"># the gate itself</span>
+├── <span class="r">pkg/pro/</span>
+│   ├── embedded_etcd.go
+│   ├── privatenodes.go
+│   ├── standalone.go
+│   ├── external_database.go
+│   └── namespace_sync.go
+│       <span class="cm"># stubs → licenseapi.*</span>
+├── <span class="c">pkg/syncer/</span>      <span class="cm"># OSS</span>
+├── <span class="c">pkg/controllers/</span> <span class="cm"># OSS</span>
+└── <span class="c">chart/values.yaml</span>
+    <span class="cm"># default image:</span>
+    <span class="cm"># loft-sh/vcluster-pro</span></div>
+        <div class="fig-cap" style="border-top:0">FIG. 4-1 — Repo layout. The engine is genuinely Apache 2.0; <span class="mono">pkg/pro</span> holds stubs whose real implementations live in the closed <span class="mono">vcluster-pro</span> build.</div>
+      </div>
+      <div>
+        <div class="tabs" role="tablist" aria-label="License boundary examples">
+          <button role="tab" aria-selected="true" data-tab="t1">THE GATE</button>
+          <button role="tab" aria-selected="false" data-tab="t2">DEFAULT IMAGE</button>
+          <button role="tab" aria-selected="false" data-tab="t3">TRUE OSS INSTALL</button>
+          <button role="tab" aria-selected="false" data-tab="t4">WHAT TRIPS IT</button>
+        </div>
+        <div class="tabpanel">
+          <div id="t1" role="tabpanel">
+<pre><span class="cm2">// config/config.go — abridged, real code</span>
+<span class="verb">func</span> (c *Config) <span class="key">IsProFeatureEnabled</span>() <span class="verb">bool</span> {
+  <span class="verb">if</span> c.ControlPlane.BackingStore.Etcd.
+       Embedded.Enabled            { <span class="verb">return</span> true }
+  <span class="verb">if</span> c.Sync.ToHost.Pods.
+       HybridScheduling.Enabled    { <span class="verb">return</span> true }
+  <span class="verb">if</span> c.PrivateNodes.Enabled &amp;&amp;
+     !c.ControlPlane.Standalone.
+       Enabled                     { <span class="verb">return</span> true }
+  <span class="verb">if</span> c.Sync.ToHost.ResourceClaims.
+       Enabled                     { <span class="verb">return</span> true }
+  <span class="verb">if</span> c.Sync.FromHost.DeviceClasses.
+       Enabled                     { <span class="verb">return</span> true }
+  <span class="cm2">// + external DB, CRD sync, ns sync,</span>
+  <span class="cm2">//   embedded CoreDNS, resolveDNS,</span>
+  <span class="cm2">//   central admission, hostPathMapper…</span>
+}</pre>
+            <div class="note">Note what's on the list for a GPU cloud: <b>DRA sync (ResourceClaims / DeviceClasses) and hybrid scheduling are pro-gated in code.</b> The modern GPU-allocation path is behind the license.</div>
+          </div>
+          <div id="t2" role="tabpanel" hidden>
+<pre><span class="cm2"># chart/values.yaml — shipped default</span>
+<span class="key">statefulSet</span>:
+  <span class="key">image</span>:
+    <span class="key">registry</span>:   <span class="str">"ghcr.io"</span>
+    <span class="key">repository</span>: <span class="str">"loft-sh/vcluster-pro"</span>
+
+<span class="cm2"># A pro image + gated config + no license</span>
+<span class="cm2"># = CrashLoopBackOff:</span>
+<span class="cm2">#   "vCluster pro feature detected…"</span></pre>
+            <div class="note">The default install path is the <b>commercial image</b>. The OSS build (<span class="mono">ghcr.io/loft-sh/vcluster-oss</span>) compiles gated features out entirely — you must opt into it explicitly.</div>
+          </div>
+          <div id="t3" role="tabpanel" hidden>
+<pre><span class="cm2"># vcluster.yaml — pin the Apache 2.0 build</span>
+<span class="key">controlPlane</span>:
+  <span class="key">statefulSet</span>:
+    <span class="key">image</span>:
+      <span class="key">repository</span>: <span class="str">loft-sh/vcluster-oss</span>
+  <span class="key">distro</span>:
+    <span class="key">k8s</span>:
+      <span class="key">scheduler</span>:
+        <span class="key">enabled</span>: true   <span class="cm2"># virtual sched = OSS</span>
+<span class="key">sync</span>:
+  <span class="key">fromHost</span>:
+    <span class="key">nodes</span>:
+      <span class="key">enabled</span>: true   <span class="cm2"># real node info</span></pre>
+            <div class="note">This is the config that stays free at any GPU count: OSS image, virtual scheduler, node sync, policies. Everything in the WHAT TRIPS IT tab must stay off.</div>
+          </div>
+          <div id="t4" role="tabpanel" hidden>
+<pre><span class="cm2"># Any of these in vcluster.yaml → license</span>
+<span class="key">controlPlane.backingStore.etcd.embedded</span>
+<span class="key">controlPlane.backingStore.database.external</span>
+<span class="key">controlPlane.coredns.embedded</span>
+<span class="key">privateNodes.enabled</span>          <span class="cm2"># tenant workers</span>
+<span class="key">sync.toHost.pods.hybridScheduling</span>
+<span class="key">sync.toHost.resourceClaims</span>    <span class="cm2"># DRA</span>
+<span class="key">sync.fromHost.deviceClasses</span>   <span class="cm2"># DRA</span>
+<span class="key">sync.toHost.customResources</span>  <span class="cm2"># CRD sync</span>
+<span class="key">sync.toHost.namespaces</span>
+<span class="key">networking.resolveDNS</span>
+<span class="key">policies.centralAdmission.*</span></pre>
+            <div class="note">Plus everything Platform-side: sleep, auto snapshots, SSO, quotas, Auto Nodes, standalone, vNode, Netris. Free tier unlocks much of this — until GPU #33.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 5. ALTERNATIVES ================= -->
+  <section id="alts">
+    <div class="sec-head"><span class="sec-num">5</span><h2>Alternatives — the honest comparison</h2></div>
+    <p class="lead">Every credible way to sell "your own Kubernetes" on shared GPU infrastructure, compared. Note what the top-end neoclouds actually run: CoreWeave hands each customer <b>dedicated bare metal behind BlueField-3 DPUs</b>; Nebius wraps GPU nodes in <b>KubeVirt VMs</b>; Crusoe uses <b>cloud-hypervisor VMs</b>. Nobody at the top sells shared-kernel tenancy.</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Option</th><th>Model</th><th>Isolation</th><th>GPU story</th><th>All-OSS?</th><th>You still build</th></tr></thead>
+      <tbody>
+        <tr><td>vcluster OSS</td><td>Control plane per tenant, shared nodes</td><td class="warn">Soft — shared kernel, shared CNI</td><td>Passthrough of <span class="mono">nvidia.com/gpu</span>; provider owns driver stack; DRA sync gated</td><td class="win">Yes (Apache 2.0)</td><td>Everything in FIG. 3-1's copper + blue zones</td></tr>
+        <tr><td>vcluster Enterprise</td><td>Above + Platform, Private Nodes, vNode, Netris</td><td class="win">Strong with Private Nodes + vNode</td><td class="win">Best-in-class packaging: BCM provider, Auto Nodes, hybrid GPU scheduling, DGX story</td><td class="warn">No — sales-led, ~£2–4k/node/yr (2024 G-Cloud anchor)</td><td>Billing, portal, fabric isolation</td></tr>
+        <tr><td><a class="x" href="https://kamaji.clastix.io" target="_blank" rel="noopener">Kamaji</a> + CAPI</td><td>Control planes as pods; <b>real dedicated workers per tenant</b></td><td class="win">Hard — tenant owns kubelet, CNI, kernel</td><td class="win">Tenant runs own GPU Operator / KAI / DRA — no gates</td><td class="win">Yes (Apache 2.0, Clastix)</td><td>Node lifecycle, autoscaling, UI, billing — the whole platform layer</td></tr>
+        <tr><td><a class="x" href="https://github.com/k0sproject/k0smotron" target="_blank" rel="noopener">k0smotron</a></td><td>k0s control planes in pods + CAPI</td><td class="win">Hard (dedicated workers)</td><td>Same DIY GPU story as Kamaji</td><td class="win">Yes (Mirantis)</td><td>Same as Kamaji; smaller community, k0s lock-in</td></tr>
+        <tr><td><a class="x" href="https://gardener.cloud" target="_blank" rel="noopener">Gardener</a></td><td>Full KaaS fleet system (seed/shoot), real clusters</td><td class="win">Hard — real clusters per tenant</td><td>Proven at hyperscale; GPU = standard operator install</td><td class="win">Yes (SAP)</td><td>Very steep ops curve; heaviest option here by far</td></tr>
+        <tr><td><a class="x" href="https://capsule.clastix.io" target="_blank" rel="noopener">Capsule</a> / namespaces</td><td>Namespace bundles on one shared cluster</td><td class="warn">Weakest — shared API server too</td><td>Fine for internal quota-sharing</td><td class="win">Yes</td><td>Can't sell it as "your own cluster": no tenant CRDs/versions</td></tr>
+        <tr><td>Per-tenant metal / VMs</td><td>CoreWeave / Nebius pattern: dedicated nodes or KubeVirt VMs per customer</td><td class="win">Hardest — DPU/hypervisor boundary</td><td class="win">Full NVLink/IB performance, tenant-owned stack</td><td>Mostly (KubeVirt, Kata OSS; DPUs are hardware)</td><td>Slowest provisioning, worst density, highest cost per tenant</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <ul class="pick">
+      <li><b>PICK vCLUSTER OSS WHEN</b> tenants are internal or trusted, density is the point, and you accept shared-kernel risk with PSS + quotas as the only fence.</li>
+      <li><b>PICK vCLUSTER ENTERPRISE WHEN</b> you want the packaged GPU-cloud platform (Private Nodes + Auto Nodes + BCM + UI) and would rather pay per node than staff a platform team for 6–12 months.</li>
+      <li><b>PICK KAMAJI + CAPI WHEN</b> you're committed to building: hard isolation, zero license risk, every component Apache 2.0 — and you own the roadmap instead of renting it.</li>
+      <li><b>PICK PER-TENANT METAL/VMs WHEN</b> customers are large, security-sensitive, and buying whole nodes anyway — multi-node training tenants usually are.</li>
+    </ul>
+    <div class="callout blue"><b>The realistic hybrid for a GPU cloud:</b> hosted control planes (vcluster OSS <i>or</i> Kamaji) + <b>dedicated GPU node pools per paying tenant</b>. Whole-node tenancy sidesteps the shared-kernel problem, GPU customers rarely buy fractions of an 8-GPU box anyway, and the control-plane tech becomes an implementation detail rather than a security boundary.</div>
+  </section>
+
+  <!-- ================= 6. BUILD-IT-YOURSELF LEDGER ================= -->
+  <section id="gaps">
+    <div class="sec-head"><span class="sec-num">6</span><h2>Where it falls short — the build-it-yourself ledger</h2></div>
+    <p class="lead">Concretely: run vcluster OSS and nothing else, and here is every gap between "tenant control planes work" and "customers pay you money" — with the paid shortcut and the OSS path for each.</p>
+    <div class="apps">
+      <div class="app" data-ref="GAP-01">
+        <span class="verdict oss">OSS PATH EXISTS</span>
+        <h3>Kernel-level isolation</h3>
+        <p>Shared nodes = one kernel for all tenants; a container escape owns every tenant on the box. The paid answer is vNode; the OSS answer would be Kata VM-isolated pods with GPU/MIG passthrough — real work, but proven.</p>
+        <p class="tools"><a class="x" href="https://katacontainers.io" target="_blank" rel="noopener">kata containers</a> · <a class="x" href="https://gvisor.dev" target="_blank" rel="noopener">gvisor (weak GPU)</a> · vnode (paid)</p>
+      </div>
+      <div class="app" data-ref="GAP-02">
+        <span class="verdict build">MUST BUILD</span>
+        <h3>Tenant network isolation</h3>
+        <p>All tenants share the host CNI; NetworkPolicy is the only fence and only works if the CNI enforces it. No per-tenant VPC/VLAN in any free tier — that's the Netris partnership (Enterprise). Building VLAN/EVPN or IB partition (pkey) isolation in the fabric is on you.</p>
+        <p class="tools">cilium netpols · EVPN/VXLAN · IB pkeys · <a class="x" href="https://www.netris.io" target="_blank" rel="noopener">netris (commercial)</a></p>
+      </div>
+      <div class="app" data-ref="GAP-03">
+        <span class="verdict oss">OSS PATH EXISTS</span>
+        <h3>GPU scheduling policy</h3>
+        <p>Gang scheduling, bin-packing, fractional GPUs, MIG carving — none of it ships in OSS vcluster, and hybrid scheduling (host-level custom schedulers for tenant pods) is Enterprise-gated. NVIDIA's KAI Scheduler is Apache 2.0; wiring it per-tenant is on you.</p>
+        <p class="tools"><a class="x" href="https://github.com/NVIDIA/KAI-Scheduler" target="_blank" rel="noopener">kai-scheduler</a> · <a class="x" href="https://github.com/NVIDIA/gpu-operator" target="_blank" rel="noopener">gpu-operator</a> · MIG / time-slicing</p>
+      </div>
+      <div class="app" data-ref="GAP-04">
+        <span class="verdict build">MUST BUILD</span>
+        <h3>Metering &amp; billing</h3>
+        <p>Nothing in any tier meters tenants for invoicing. vBilling (their new OSS side-project) is alpha: GPU-hours by SKU via DCGM, streaming to Lago. Usable as a starting point, but revenue-grade metering is your code either way.</p>
+        <p class="tools"><a class="x" href="https://github.com/vClusterLabs-Experiments/vbilling" target="_blank" rel="noopener">vbilling (alpha)</a> · <a class="x" href="https://openmeter.io" target="_blank" rel="noopener">openmeter</a> · <a class="x" href="https://www.getlago.com" target="_blank" rel="noopener">lago</a> · dcgm-exporter</p>
+      </div>
+      <div class="app" data-ref="GAP-05">
+        <span class="verdict buy">GATED — OR BUILD</span>
+        <h3>Tenant lifecycle &amp; self-service</h3>
+        <p>Signup → provision → kubeconfig delivery → quotas → SSO → sleep idle tenants → delete. That's the entire vCluster Platform value prop (Free ≤32 GPUs, then Enterprise). DIY = a control plane of your own: operator + portal + templates.</p>
+        <p class="tools">platform (paid) · custom operator + <a class="x" href="https://github.com/loft-sh/cluster-api-provider-vcluster" target="_blank" rel="noopener">CAPI provider</a> · backstage</p>
+      </div>
+      <div class="app" data-ref="GAP-06">
+        <span class="verdict buy">GATED — OR BUILD</span>
+        <h3>HA state &amp; node lifecycle</h3>
+        <p>OSS backing store is SQLite or self-run etcd — embedded managed etcd is gated, and HA beyond one vcluster is Free-tier-capped. Auto Nodes (Karpenter provisioning, BCM/Metal3 providers) is gated too; the OSS route is Cluster API + Karpenter glue you own.</p>
+        <p class="tools">external etcd ops · <a class="x" href="https://cluster-api.sigs.k8s.io" target="_blank" rel="noopener">cluster api</a> · <a class="x" href="https://karpenter.sh" target="_blank" rel="noopener">karpenter</a></p>
+      </div>
+    </div>
+    <div class="callout"><b>Ledger total:</b> two gaps have solid OSS answers you integrate (Kata, KAI), two are yours to build under any vendor (billing, fabric isolation), and two are the actual buy-vs-build decision (Platform layer, node lifecycle). That last pair is what an Enterprise contract — anchored around <b>£2,000–4,000 per node per year</b> on 2024 UK G-Cloud pricing — is really priced against.</div>
+  </section>
+
+  <!-- ================= 7. ECOSYSTEM ================= -->
+  <section id="eco">
+    <div class="sec-head"><span class="sec-num">7</span><h2>The ecosystem — names you'll run into</h2></div>
+    <div class="eco">
+      <div class="eco-col">
+        <h3>vCluster Labs product family</h3>
+        <ul>
+          <li><b>vCluster Platform</b><span>the commercial management plane (UI, SSO, sleep, quotas) — v4.11</span></li>
+          <li><b>vNode</b><span>paid userns/seccomp isolation runtime for shared nodes</span></li>
+          <li><b>vMetal</b><span>new bare-metal GPU provisioning product (GPU presentation modes)</span></li>
+          <li><b>vBilling</b><span>alpha OSS usage-metering controller (DCGM → Lago)</span></li>
+          <li><b>vind</b><span>vCluster-in-Docker, fully OSS — the local demo path</span></li>
+          <li><b>Rackspace Spot</b><span>best-known public cloud built on vcluster control planes</span></li>
+        </ul>
+      </div>
+      <div class="eco-col">
+        <h3>OSS hosted-control-plane rivals</h3>
+        <ul>
+          <li><b><a class="x" href="https://kamaji.clastix.io" target="_blank" rel="noopener">Kamaji</a></b><span>Clastix; CP-as-pods + real tenant workers, Apache 2.0, CAPI provider</span></li>
+          <li><b><a class="x" href="https://github.com/k0sproject/k0smotron" target="_blank" rel="noopener">k0smotron</a></b><span>Mirantis; k0s control planes in pods</span></li>
+          <li><b><a class="x" href="https://www.kcp.io" target="_blank" rel="noopener">kcp</a></b><span>CNCF; API-plane workspaces, no nodes — wrong tool for selling compute</span></li>
+          <li><b><a class="x" href="https://github.com/rancher/k3k" target="_blank" rel="noopener">k3k</a></b><span>SUSE's k3s-based virtual clusters — younger vcluster analog</span></li>
+          <li><b><a class="x" href="https://gardener.cloud" target="_blank" rel="noopener">Gardener</a></b><span>SAP's full KaaS machine — thousands of real clusters</span></li>
+        </ul>
+      </div>
+      <div class="eco-col">
+        <h3>The GPU tenancy stack</h3>
+        <ul>
+          <li><b><a class="x" href="https://github.com/NVIDIA/gpu-operator" target="_blank" rel="noopener">GPU Operator</a></b><span>drivers, device plugin, DCGM, MIG manager — whoever owns the node runs it</span></li>
+          <li><b><a class="x" href="https://github.com/NVIDIA/KAI-Scheduler" target="_blank" rel="noopener">KAI Scheduler</a></b><span>NVIDIA's open-sourced Run:ai scheduler: gang, queues, fractions</span></li>
+          <li><b>DRA</b><span>Dynamic Resource Allocation — K8s-native GPU claims; vcluster syncs it only behind the gate</span></li>
+          <li><b>MIG / time-slicing</b><span>hardware vs software GPU splitting; configured below vcluster either way</span></li>
+          <li><b><a class="x" href="https://katacontainers.io" target="_blank" rel="noopener">Kata Containers</a></b><span>VM-isolated pods; the OSS answer to shared-kernel risk</span></li>
+        </ul>
+      </div>
+      <div class="eco-col">
+        <h3>What the neoclouds run</h3>
+        <ul>
+          <li><b>CoreWeave CKS</b><span>dedicated bare-metal cluster per customer; BlueField-3 DPU isolation</span></li>
+          <li><b>Nebius</b><span>GPU nodes as KubeVirt lightweight VMs; open-sourced Soperator (Slurm)</span></li>
+          <li><b>Crusoe</b><span>cloud-hypervisor VMs + managed K8s/Slurm</span></li>
+          <li><b>Lambda</b><span>1-Click Clusters — whole clusters handed to tenants</span></li>
+          <li><b>vcluster's actual segment</b><span>second-wave AI clouds, sovereign clouds, DGX/BCM "AI factories," platform vendors (SpectroCloud, Rafay)</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 8. GOTCHAS ================= -->
+  <section id="know">
+    <div class="sec-head"><span class="sec-num">8</span><h2>Gotchas — before anyone writes a line of code</h2></div>
+    <ul class="gotchas">
+      <li><b>Shared nodes are soft tenancy, full stop.</b> Pod Security Standards, quotas, and NetworkPolicies are policy, not a boundary. If two competing customers' training jobs share a kernel and an NVLink fabric, a single container escape or noisy neighbor is a company-ending incident, not a bug. Sell whole nodes per tenant or add Kata/vNode before selling to strangers.</li>
+      <li><b>The default Helm install is the commercial image.</b> <span class="mono">chart/values.yaml</span> points at <span class="mono">loft-sh/vcluster-pro</span>; with gated config and no license it crashloops. Pin <span class="mono">ghcr.io/loft-sh/vcluster-oss</span> deliberately, everywhere, or a teammate's "harmless" config flag becomes a licensing dependency.</li>
+      <li><b>The Free tier is a demo, not a tier.</b> 64 vCPUs or 32 GPUs total and one HA vcluster — four H100 boxes — with license validation phoning <span class="mono">admin.loft.sh</span>. Losing connectivity degrades gracefully to OSS features, but building on Free-tier features means building on a license you don't control.</li>
+      <li><b>The GPU-native path is gated.</b> DRA sync and hybrid scheduling (host GPU schedulers for tenant pods) trip <span class="mono">IsProFeatureEnabled()</span>. The OSS workaround — provider-owned GPU stack + extended resources + in-tenant virtual scheduler — works today but is the legacy allocation model, and the industry is moving to DRA.</li>
+      <li><b>NetworkPolicy isolation is only as real as the host CNI.</b> vcluster happily syncs policies to a CNI that ignores them. Cilium/Calico with enforcement verified per-cluster is table stakes before tenant #2.</li>
+      <li><b>History says the line moves.</b> k3s/k0s/EKS distros: removed. v0.20: pro image became the default. Jan 2026: Enterprise features moved to a capped Free tier, explicitly to stop people "building around the open source project." Architect so that gated features are swappable, not load-bearing.</li>
+      <li><b>The syncer is host-cluster attack surface.</b> Each tenant's syncer holds real RBAC in a host namespace, and every tenant API server is a new internet-facing door to your infrastructure. The hardening guides are good — and entirely on you to apply. (Isolated Control Plane, which separates CP and workload clusters, is Enterprise.)</li>
+      <li><b>You can verify all of this in an afternoon.</b> Section 9 reproduces the license gate, the OSS install, and the Kamaji comparison on a laptop — before any architecture doc cites this sheet.</li>
+    </ul>
+  </section>
+
+  <!-- ================= 9. LABS ================= -->
+  <section id="lab">
+    <div class="sec-head"><span class="sec-num">9</span><h2>Run it yourself — verify the claims</h2></div>
+    <p class="lead">Three labs, escalating from laptop to decision-grade evidence. LAB A reproduces this sheet's central claim — the license gate — with your own eyes.</p>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB A — Touch the OSS line on your laptop</h3><span class="meta">~15 min · needs Docker + kind + helm</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li>
+            <p><b>Create a throwaway host cluster and install the CLI.</b></p>
+            <pre>brew install kind loft-sh/tap/vcluster   # or: curl -fsSL https://kind.sigs.k8s.io
+kind create cluster --name host</pre>
+            <p class="expect">EXPECT: `kubectl get nodes` shows one kind node — this plays the role of your GPU fleet.</p>
+          </li>
+          <li>
+            <p><b>Create a tenant on the true OSS image</b> (not the chart default):</p>
+            <pre>cat &lt;&lt;'EOF' &gt; oss.yaml
+controlPlane:
+  statefulSet:
+    image: { repository: loft-sh/vcluster-oss }
+EOF
+vcluster create tenant-a -n tenant-a -f oss.yaml</pre>
+            <p class="expect">EXPECT: ~60s later your kubecontext is inside tenant-a. `kubectl get ns` shows a fresh cluster; the host only sees a pod.</p>
+          </li>
+          <li>
+            <p><b>Prove the isolation model.</b> Create a CRD in the tenant, then look for it on the host:</p>
+            <pre>kubectl create ns demo &amp;&amp; kubectl get crds | head
+vcluster disconnect
+kubectl get ns | grep demo   # nothing — tenant objects are virtual</pre>
+            <p class="expect">EXPECT: tenant namespaces/CRDs don't exist on the host. Only synced pods appear, renamed, in namespace tenant-a.</p>
+          </li>
+          <li>
+            <p><b>Now trip the gate.</b> Add one copper-zone flag from Section 4 and upgrade:</p>
+            <pre>cat &lt;&lt;'EOF' &gt; gated.yaml
+controlPlane:
+  statefulSet:
+    image: { repository: loft-sh/vcluster-oss }
+  backingStore: { etcd: { embedded: { enabled: true } } }
+EOF
+vcluster create tenant-a -n tenant-a --upgrade -f gated.yaml</pre>
+            <p class="expect">EXPECT: rejection/crashloop — embedded etcd is a pro feature and the OSS image doesn't even contain it. You just met IsProFeatureEnabled().</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB B — The Kamaji comparison</h3><span class="meta">~45 min · same kind cluster</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li>
+            <p><b>Install Kamaji on the same kind cluster</b> (needs cert-manager first):</p>
+            <pre>helm repo add jetstack https://charts.jetstack.io &amp;&amp; helm repo add clastix https://clastix.github.io/charts
+helm install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set crds.enabled=true
+helm install kamaji clastix/kamaji -n kamaji-system --create-namespace</pre>
+            <p class="expect">EXPECT: kamaji controller Running. Follow the <a class="x" href="https://kamaji.clastix.io/getting-started/" target="_blank" rel="noopener">getting-started guide</a> for a TenantControlPlane CR.</p>
+          </li>
+          <li>
+            <p><b>Create a TenantControlPlane and note the difference.</b> Kamaji gives you an API server the same way vcluster does — but <i>no workers and no syncer</i>. Workers are real machines you join with a bootstrap token (in prod: Cluster API).</p>
+            <pre>kubectl apply -f https://raw.githubusercontent.com/clastix/kamaji/master/config/samples/kamaji_v1alpha1_tenantcontrolplane.yaml
+kubectl get tcp -A</pre>
+            <p class="expect">EXPECT: a READY tenant control plane pod. The mental model shift: vcluster fakes nodes via the syncer; Kamaji expects you to bring real ones — which is exactly why its isolation is hard and its platform burden is bigger.</p>
+          </li>
+          <li>
+            <p><b>Write down the comparison while it's fresh.</b> Provisioning feel, what tenants can see, what you'd still have to build for node lifecycle in each. That half-page is the core of any architecture decision.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB C — Graduate to one real GPU node</h3><span class="meta">optional · 1 spare GPU box · the decision-maker</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li>
+            <p><b>Stand up a one-node host cluster on a spare GPU machine</b> (k3s or kubeadm), install the <a class="x" href="https://github.com/NVIDIA/gpu-operator" target="_blank" rel="noopener">GPU Operator</a> on the host, and confirm <span class="mono">nvidia.com/gpu</span> is allocatable.</p>
+            <pre>helm install --wait gpu-operator nvidia/gpu-operator -n gpu-operator --create-namespace
+kubectl describe node | grep -A3 'nvidia.com/gpu'</pre>
+            <p class="expect">EXPECT: the node advertises its GPUs. This is the provider-owned GPU stack from FIG. 3-1.</p>
+          </li>
+          <li>
+            <p><b>Create an OSS tenant and run a GPU pod from inside it.</b></p>
+            <pre>vcluster create gpu-tenant -n gpu-tenant -f oss.yaml
+kubectl run cuda --image=nvcr.io/nvidia/cuda:12.4.1-base-ubuntu22.04 \
+  --overrides='{"spec":{"containers":[{"name":"cuda","image":"nvcr.io/nvidia/cuda:12.4.1-base-ubuntu22.04","command":["nvidia-smi"],"resources":{"limits":{"nvidia.com/gpu":1}}}]}}' --restart=Never
+kubectl logs cuda</pre>
+            <p class="expect">EXPECT: nvidia-smi output from inside the tenant — GPU passthrough works on pure OSS. Then note what didn't happen: no per-tenant GPU quota, no gang scheduling, no metering record, no network isolation. That gap list is Section 6, live.</p>
+          </li>
+          <li>
+            <p><b>Time-box a DCGM metering spike.</b> Point <a class="x" href="https://github.com/NVIDIA/dcgm-exporter" target="_blank" rel="noopener">dcgm-exporter</a> + Prometheus at the node and attribute GPU-seconds to the tenant namespace label. If that takes under a day, the billing gap is buildable; if not, that's real data for the buy side of the ledger.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 10. GLOSSARY + READING ================= -->
+  <section id="glossary">
+    <div class="sec-head"><span class="sec-num">10</span><h2>Glossary — the jargon, decoded</h2></div>
+    <div class="glossary">
+      <dl>
+        <div class="entry" id="g-syncer"><dt>Syncer</dt><dd>vCluster's translation engine: copies pods/services/PVCs from the tenant's virtual API server into a host namespace (renamed), and node/event info back up. It holds real host RBAC — which makes it both the magic and the attack surface.</dd></div>
+        <div class="entry" id="g-kine"><dt>kine / SQLite backing store</dt><dd>An etcd-API shim over SQL databases. OSS vcluster stores tenant state in SQLite via kine by default; managed embedded etcd is license-gated. <a class="x" href="https://github.com/k3s-io/kine" target="_blank" rel="noopener">github.com/k3s-io/kine</a></dd></div>
+        <div class="entry" id="g-privatenodes"><dt>Private Nodes</dt><dd>License-gated mode where real worker machines join the tenant's virtual control plane directly — own kubelet, CNI, and GPU Operator per tenant. vCluster's own docs call this the model for GPU clouds.</dd></div>
+        <div class="entry" id="g-hybridsched"><dt>Hybrid scheduling</dt><dd>Enterprise feature letting tenant pods be placed by host-level custom schedulers (e.g. a shared GPU scheduler like KAI) instead of the default host scheduler.</dd></div>
+        <div class="entry" id="g-dra"><dt>DRA — Dynamic Resource Allocation</dt><dd>Kubernetes' modern device-allocation API (ResourceClaims/DeviceClasses) replacing bare extended resources like <span class="mono">nvidia.com/gpu</span>. vCluster can sync DRA objects — but only behind the license gate. <a class="x" href="https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/" target="_blank" rel="noopener">k8s docs</a></dd></div>
+        <div class="entry" id="g-sleep"><dt>Sleep mode</dt><dd>Platform feature that scales idle tenant workloads to zero and wakes them on the next request — the density multiplier for internal dev tenants. Enterprise-gated.</dd></div>
+        <div class="entry" id="g-mig"><dt>MIG / time-slicing</dt><dd>Two ways to split a physical GPU: MIG carves hardware partitions (A100/H100); time-slicing shares whole GPUs in software with no memory isolation. Both configured in the node's GPU stack, below any tenancy layer.</dd></div>
+        <div class="entry" id="g-capi"><dt>Cluster API (CAPI)</dt><dd>Kubernetes-native machinery for creating and managing clusters and machines declaratively. The glue for any DIY hosted-control-plane platform (Kamaji, k0smotron both ship CAPI providers). <a class="x" href="https://cluster-api.sigs.k8s.io" target="_blank" rel="noopener">cluster-api.sigs.k8s.io</a></dd></div>
+      </dl>
+      <dl>
+        <div class="entry" id="g-hostedcp"><dt>Hosted control plane</dt><dd>Running a tenant's API server/etcd as pods in a management cluster instead of on dedicated masters. The pattern behind vcluster, Kamaji, k0smotron, HyperShift, and GKE/EKS internals alike.</dd></div>
+        <div class="entry" id="g-kata"><dt>Kata Containers</dt><dd>OCI runtime that wraps each pod in a lightweight VM — kernel-level isolation on shared nodes. GPU use = VFIO passthrough of a whole GPU or MIG slice. The OSS counterpart to vCluster's paid vNode. <a class="x" href="https://katacontainers.io" target="_blank" rel="noopener">katacontainers.io</a></dd></div>
+        <div class="entry" id="g-karpenter"><dt>Karpenter</dt><dd>Node-autoscaling controller that provisions right-sized machines on demand. vCluster's "Auto Nodes" is gated Karpenter integration; using Karpenter directly is Apache 2.0. <a class="x" href="https://karpenter.sh" target="_blank" rel="noopener">karpenter.sh</a></dd></div>
+        <div class="entry" id="g-dpu"><dt>DPU / BlueField</dt><dd>A NIC with its own CPU that enforces network/storage isolation below the host OS. CoreWeave's tenancy boundary — and the part of the top-end pattern with no OSS equivalent.</dd></div>
+        <div class="entry" id="g-pss"><dt>Pod Security Standards (PSS)</dt><dd>Kubernetes' built-in pod restriction profiles (privileged/baseline/restricted). OSS vcluster can enforce "baseline" so privileged/hostPath pods never sync to the host — policy-level protection only.</dd></div>
+        <div class="entry" id="g-opencore"><dt>Open-core</dt><dd>Business model: a genuinely open engine plus proprietary features and a management plane around it. The strategic risk isn't today's feature split — it's that the vendor controls where the line moves next.</dd></div>
+        <div class="entry" id="g-ib"><dt>IB pkeys</dt><dd>InfiniBand partition keys — VLAN-like tenant separation on the training fabric. Multi-tenant GPU clouds need this at the fabric layer; no Kubernetes tenancy product provides it.</dd></div>
+        <div class="entry" id="g-dcgm"><dt>DCGM</dt><dd>NVIDIA's Data Center GPU Manager — the telemetry source (utilization, memory, power) for GPU metering. <span class="mono">dcgm-exporter</span> feeds it to Prometheus; vBilling and every billing pipeline sit on top. <a class="x" href="https://github.com/NVIDIA/dcgm-exporter" target="_blank" rel="noopener">dcgm-exporter</a></dd></div>
+      </dl>
+    </div>
+
+    <h3 style="margin-top:36px;border-top:1.5px solid var(--ink);padding-top:18px">Further reading — where to go deeper</h3>
+    <ul class="reading">
+      <li><a class="x" href="https://www.vcluster.com/docs/vcluster/introduction/oss-vs-free" target="_blank" rel="noopener">vCluster docs: OSS vs Free</a><span class="why">The vendor's own canonical feature/tier table — the primary source for every gating claim in this sheet.</span></li>
+      <li><a class="x" href="https://www.vcluster.com/docs/vcluster/introduction/gpu-cloud-platform" target="_blank" rel="noopener">vCluster docs: Building a GPU cloud platform</a><span class="why">Their reference architecture for exactly your use case — note how often it reaches for Private Nodes and Platform features.</span></li>
+      <li><a class="x" href="https://www.vcluster.com/blog/launching-vcluster-free-get-enterprise-features-at-no-cost" target="_blank" rel="noopener">The vCluster Free launch post (Jan 2026)</a><span class="why">Contains the explicit "we won't open-source these because competitors would build on them" rationale — required reading before betting on the OSS core.</span></li>
+      <li><a class="x" href="https://github.com/loft-sh/vcluster" target="_blank" rel="noopener">github.com/loft-sh/vcluster</a><span class="why">Read config/config.go → IsProFeatureEnabled() yourself; the license line in ~60 lines of Go.</span></li>
+      <li><a class="x" href="https://kamaji.clastix.io" target="_blank" rel="noopener">Kamaji documentation</a><span class="why">The strongest all-Apache-2.0 alternative: hosted control planes with real tenant workers, plus its Cluster API provider.</span></li>
+      <li><a class="x" href="https://docs.coreweave.com/docs/security/architecture" target="_blank" rel="noopener">CoreWeave security architecture</a><span class="why">What top-tier GPU tenancy actually looks like (DPUs, per-tenant VPCs, bare metal) — the bar customers will compare against.</span></li>
+      <li><a class="x" href="https://newsletter.semianalysis.com/p/clustermax-20-the-industry-standard" target="_blank" rel="noopener">SemiAnalysis ClusterMAX 2.0</a><span class="why">Independent ratings of GPU clouds, including how each handles tenancy and security — useful market positioning context.</span></li>
+      <li><a class="x" href="https://github.com/NVIDIA/KAI-Scheduler" target="_blank" rel="noopener">NVIDIA KAI Scheduler</a><span class="why">The Apache 2.0 GPU scheduler (gang scheduling, queues, fractional GPUs) you'd wire in yourself on the OSS path.</span></li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>SOURCES: loft-sh/vcluster @ 717d0ee1 (cloned 2026-07-21) · vcluster.com/docs + /pricing · kamaji.clastix.io · docs.coreweave.com · semianalysis.com</span>
+    <span>vCLUSTER &amp; THE OSS LINE — A TECHNICAL EXPLAINER · REV. 2026-07</span>
+  </footer>
+</div>
+
+<script type="application/json" id="knowledge-manifest">
+{ "topic": "vCluster, the OSS/commercial boundary, and Kubernetes multi-tenancy options for a GPU cloud",
+  "concepts": [
+    {"term":"vCluster","oneliner":"A real Kubernetes control plane per tenant, running as a pod on a host cluster, with a syncer copying pods/services down to shared nodes."},
+    {"term":"Syncer","oneliner":"The translation engine between virtual and host cluster; holds real host RBAC, so it's both the magic and the attack surface."},
+    {"term":"Open-core boundary","oneliner":"Engine is Apache 2.0; embedded etcd, Private Nodes, hybrid scheduling, DRA sync, CRD sync, and the whole Platform are license-gated via IsProFeatureEnabled()."},
+    {"term":"Three tiers","oneliner":"OSS (free forever), Free (license-validated, capped at 64 vCPU / 32 GPUs), Enterprise (sales-led, roughly £2-4k per node per year on 2024 anchors)."},
+    {"term":"Private Nodes","oneliner":"Gated mode where real workers join the tenant control plane — the model vCluster itself recommends for GPU clouds."},
+    {"term":"Soft vs hard tenancy","oneliner":"Shared nodes mean one kernel and one CNI for all tenants; PSS and quotas are policy, not a boundary."},
+    {"term":"DRA","oneliner":"Kubernetes' modern GPU allocation API; vcluster syncs it only behind the license gate, so OSS users stay on extended resources."},
+    {"term":"Kamaji","oneliner":"Apache 2.0 alternative: control planes as pods plus real dedicated workers per tenant — harder isolation, bigger DIY platform burden."},
+    {"term":"Kata Containers","oneliner":"VM-isolated pods; the OSS answer to shared-kernel risk (vCluster sells vNode for the same problem)."},
+    {"term":"KAI Scheduler","oneliner":"NVIDIA's open-sourced Run:ai scheduler: gang scheduling, queues, fractional GPUs — the OSS GPU scheduling path."},
+    {"term":"Neocloud pattern","oneliner":"CoreWeave: bare metal + DPUs per tenant; Nebius: KubeVirt VMs; Crusoe: cloud-hypervisor — nobody at the top sells shared-kernel tenancy."},
+    {"term":"vBilling","oneliner":"vCluster Labs' alpha OSS metering controller (DCGM GPU-hours to Lago) — the only billing story in the ecosystem, and it's experimental."}
+  ],
+  "mechanisms": [
+    "Tenant kubectl → virtual API server (pod on host) → state in SQLite/kine → syncer translates pods/services into host namespace → host scheduler places them on shared GPU nodes → GPU Operator on host advertises nvidia.com/gpu",
+    "License gate: vcluster.yaml flag (e.g. embedded etcd) → IsProFeatureEnabled() returns true → pro image requires license Secret → validated against admin.loft.sh → no license = crashloop; vcluster-oss image compiles the feature out entirely",
+    "Kamaji path: TenantControlPlane CR → control plane pods in management cluster → real worker machines join via bootstrap token / Cluster API → tenant owns kubelet, CNI, GPU Operator end to end"
+  ],
+  "scenarios": [
+    "A customer asks to install their own NVIDIA GPU Operator with a custom driver version. Which tenancy modes allow it, and what does each cost or require?",
+    "Two tenants' training jobs share an H100 node; one suffers a container escape. Walk the blast radius under vcluster OSS shared nodes vs Kamaji dedicated workers vs Kata pods.",
+    "Finance wants per-tenant GPU-hour invoicing next quarter. Map the pipeline from DCGM to invoice and identify which pieces exist in OSS vs must be built.",
+    "vCluster Labs moves the virtual scheduler behind the license gate in v0.40. Which parts of the proposed architecture break, and what was the mitigation this sheet recommended?",
+    "A prospective enterprise customer demands network isolation equivalent to a VPC. What are the options on shared nodes, on Private Nodes, and on an all-OSS stack?"
+  ] }
+</script>
+
+<script>
+  const tabs = document.querySelectorAll('.tabs [role="tab"]');
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(b => b.setAttribute('aria-selected', b === btn ? 'true' : 'false'));
+      document.querySelectorAll('.tabpanel [role="tabpanel"]').forEach(p => {
+        p.hidden = (p.id !== btn.dataset.tab);
+      });
+    });
+  });
+  (function(){
+    const pop = document.createElement('div');
+    pop.id = 'glpop';
+    document.body.appendChild(pop);
+    let pinned = false;
+
+    function fill(link){
+      const id = (link.getAttribute('href')||'').slice(1);
+      const entry = document.getElementById(id);
+      if(!entry) return false;
+      const dt = entry.querySelector('dt');
+      const dd = entry.querySelector('dd');
+      if(!dt || !dd) return false;
+      const ext = dd.querySelector('a');
+      const def = dd.cloneNode(true);
+      def.querySelectorAll('a').forEach(a => a.remove());
+      pop.innerHTML =
+        '<span class="t">' + dt.textContent + '</span>' + def.innerHTML +
+        '<div class="links">' +
+        (ext ? '<a href="' + ext.href + '" target="_blank" rel="noopener">Dive deeper ↗</a>' : '') +
+        '<a href="#' + id + '" class="jump">Full glossary ↓</a></div>';
+      return true;
+    }
+    function show(link){
+      if(!fill(link)) return;
+      const r = link.getBoundingClientRect();
+      pop.style.display = 'block';
+      const pw = Math.min(300, window.innerWidth - 24);
+      pop.style.maxWidth = pw + 'px';
+      let x = window.scrollX + r.left;
+      const maxX = window.scrollX + window.innerWidth - pop.offsetWidth - 12;
+      if(x > maxX) x = Math.max(window.scrollX + 12, maxX);
+      pop.style.left = x + 'px';
+      pop.style.top = (window.scrollY + r.bottom + 8) + 'px';
+    }
+    function hide(){ pop.style.display = 'none'; pinned = false; }
+
+    document.querySelectorAll('a.gl').forEach(link => {
+      link.addEventListener('mouseenter', () => { if(!pinned) show(link); });
+      link.addEventListener('mouseleave', () => {
+        setTimeout(() => { if(!pinned && !pop.matches(':hover')) hide(); }, 120);
+      });
+      link.addEventListener('click', (e) => { e.preventDefault(); pinned = true; show(link); });
+    });
+    pop.addEventListener('mouseleave', () => { if(!pinned) hide(); });
+    pop.addEventListener('click', (e) => { if(e.target.classList.contains('jump')) hide(); });
+    document.addEventListener('click', (e) => {
+      if(pinned && !pop.contains(e.target) && !e.target.closest('a.gl')) hide();
+    });
+    window.addEventListener('scroll', () => { if(!pinned) hide(); }, {passive:true});
+  })();
+</script>
+</body>
+</html>

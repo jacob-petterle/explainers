@@ -57,6 +57,7 @@
   .metal .tag{background:var(--copper-soft);color:var(--copper);}
   .obs .tag{background:var(--solder-soft);color:var(--solder);}
   .data .tag{background:#EFE7D6;color:#7A5A12;}
+  .k8s .tag{background:#ECE3F5;color:#5B3A82;}
 
   footer{margin-top:64px;border-top:3px solid var(--ink);padding-top:20px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
   footer a{color:var(--copper);font-weight:600;}
@@ -100,7 +101,7 @@
       </div>
       <div class="spec-box" aria-label="Collection reference">
         <div><span class="k">Format</span><b>self-contained HTML</b></div>
-        <div><span class="k">Entries</span><b>12 &amp; counting</b></div>
+        <div><span class="k">Entries</span><b>13 &amp; counting</b></div>
         <div><span class="k">Topics</span><b>open-ended</b></div>
         <div><span class="k">Approach</span><b>first-principles</b></div>
       </div>
@@ -129,8 +130,18 @@
     </div>
   </section>
 
+  <section id="tenancy" class="k8s">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Kubernetes &amp; Multi-Tenancy</h2><span class="sec-count">1 entry</span></div>
+    <div class="grid">
+      <a class="card" href="vcluster-explainer.html">
+        <div class="tag"><span>Virtual Clusters</span><span class="arrow">→</span></div>
+        <div class="body"><h3>vCluster &amp; the OSS Line</h3><p>A real Kubernetes control plane per tenant, running as a pod — where the open-source line falls, what's license-gated, and exactly what a multi-tenant GPU cloud still has to build itself.</p></div>
+      </a>
+    </div>
+  </section>
+
   <section id="bare-metal" class="metal">
-    <div class="sec-head"><span class="sec-num">02</span><h2>Bare Metal &amp; Provisioning</h2><span class="sec-count">4 entries</span></div>
+    <div class="sec-head"><span class="sec-num">03</span><h2>Bare Metal &amp; Provisioning</h2><span class="sec-count">4 entries</span></div>
     <div class="grid">
       <a class="card" href="bmc-redfish-explainer.html">
         <div class="tag"><span>Out-of-band Mgmt</span><span class="arrow">→</span></div>
@@ -152,7 +163,7 @@
   </section>
 
   <section id="observability" class="obs">
-    <div class="sec-head"><span class="sec-num">03</span><h2>Observability</h2><span class="sec-count">2 entries</span></div>
+    <div class="sec-head"><span class="sec-num">04</span><h2>Observability</h2><span class="sec-count">2 entries</span></div>
     <div class="grid">
       <a class="card" href="prometheus-explainer.html">
         <div class="tag"><span>Metrics</span><span class="arrow">→</span></div>
@@ -166,7 +177,7 @@
   </section>
 
   <section id="data" class="data">
-    <div class="sec-head"><span class="sec-num">04</span><h2>Data &amp; Workflow</h2><span class="sec-count">2 entries</span></div>
+    <div class="sec-head"><span class="sec-num">05</span><h2>Data &amp; Workflow</h2><span class="sec-count">2 entries</span></div>
     <div class="grid">
       <a class="card" href="kafka-iceberg-explainer.html">
         <div class="tag"><span>Streaming / Lakehouse</span><span class="arrow">→</span></div>

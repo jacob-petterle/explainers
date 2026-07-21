@@ -17,6 +17,9 @@ now it leans infrastructure, but that's just where it started, not what it's lim
 - [K8s & the Packet](k8s-and-the-packet.html)
 - [RoCE & the Switch](roce-and-the-switch.html)
 
+### Kubernetes & Multi-Tenancy
+- [vCluster & the OSS Line](vcluster-explainer.html)
+
 ### Bare Metal & Provisioning
 - [BMC & Redfish](bmc-redfish-explainer.html)
 - [Metal³](metal3-explainer.html)
