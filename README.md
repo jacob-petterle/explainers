@@ -1,8 +1,11 @@
-# Explainers — A Field Guide to the Stack
+# Explainers — A Personal Field Guide
 
-A personal, growing collection of technical explainers. Each one is a self-contained
-HTML page that works out a technology from first principles until it actually makes
-sense — written to be re-read, not skimmed once.
+A personal, growing collection of explainers. Each one is a self-contained HTML page
+that works something out from first principles until it actually makes sense — written
+plainly and built to be re-read, not skimmed once.
+
+The collection is **open-ended** — anything worth understanding can get an entry. Right
+now it leans infrastructure, but that's just where it started, not what it's limited to.
 
 **Live site:** https://jacob-petterle.github.io/explainers/
 
