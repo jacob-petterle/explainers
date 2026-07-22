@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cursor Router — Technical Explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAFAF6; --ink:#17191B;
+    --copper:#B0632F; --copper-soft:#F4E4D3;
+    --solder:#0E5138; --solder-soft:#E3EEE7;
+    --blue:#1E4E79; --blue-soft:#E1EAF2;
+    --rule:#D8D8CE; --rule-dark:#9A9C92; --dim:#63665C;
+    --code-bg:#1E211F; --code-ink:#E8EAE2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+  }
+  body{background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+  .sheet{max-width:1080px;margin:0 auto;padding:0 28px 80px;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  h1,h2,h3{font-family:'IBM Plex Sans Condensed',sans-serif;line-height:1.12;}
+
+  a.x{color:var(--copper);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;text-decoration-color:#D9B08C;}
+  a.x:hover{text-decoration-color:var(--copper);}
+  a.x::after{content:"\2197";font-size:.72em;vertical-align:super;margin-left:1px;}
+  a.gl{color:inherit;text-decoration:underline dotted 1.5px var(--rule-dark);text-underline-offset:3px;cursor:help;}
+  a.gl:hover{text-decoration-color:var(--copper);color:var(--copper);}
+  a:focus-visible{outline:2px solid var(--copper);outline-offset:2px;}
+
+  #glpop{position:absolute;z-index:50;max-width:300px;background:var(--ink);color:var(--paper);padding:12px 14px;font-size:13.5px;line-height:1.55;border:1.5px solid var(--copper);box-shadow:4px 4px 0 rgba(23,25,27,.18);display:none;}
+  #glpop .t{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#E8B380;display:block;margin-bottom:4px;letter-spacing:.05em;text-transform:uppercase;}
+  #glpop .links{margin-top:9px;display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;font-family:'IBM Plex Mono',monospace;}
+  #glpop a{color:#E8B380;font-weight:600;text-decoration:underline;text-underline-offset:2px;}
+  #glpop .mono{color:#D9C87C;}
+
+  header{border-bottom:3px solid var(--ink);padding:26px 0 22px;}
+  .doc-line{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--rule);padding-bottom:12px;margin-bottom:24px;}
+  .doc-line .std{color:var(--copper);font-weight:600;}
+  .masthead{display:flex;gap:32px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;}
+  h1{font-size:clamp(38px,6vw,62px);font-weight:700;letter-spacing:-.01em;}
+  h1 .amp{color:var(--copper);}
+  .subtitle{max-width:560px;margin-top:12px;font-size:17px;color:#2E312B;}
+  .spec-box{border:1.5px solid var(--ink);min-width:250px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  .spec-box div{display:flex;justify-content:space-between;gap:18px;padding:7px 12px;border-bottom:1px solid var(--rule);}
+  .spec-box div:last-child{border-bottom:0;}
+  .spec-box b{font-weight:600;}
+  .spec-box .k{color:var(--dim);}
+
+  section{padding:52px 0 8px;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1.5px solid var(--ink);padding-bottom:10px;margin-bottom:28px;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--paper);background:var(--ink);padding:3px 9px;}
+  h2{font-size:clamp(24px,3.4vw,32px);font-weight:700;}
+  h3{font-size:18px;font-weight:600;margin-bottom:8px;}
+  p{margin-bottom:14px;max-width:74ch;}
+  .lead{font-size:17.5px;}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+  @media(max-width:760px){.two-col{grid-template-columns:1fr;}}
+
+  .def-card{border:1.5px solid var(--ink);}
+  .def-card .tag{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;border-bottom:1.5px solid var(--ink);display:flex;justify-content:space-between;}
+  .def-card.hw .tag{background:var(--solder-soft);color:var(--solder);}
+  .def-card.sw .tag{background:var(--copper-soft);color:var(--copper);}
+  .def-card .body{padding:16px 18px 6px;}
+  .def-card .one-liner{font-family:'IBM Plex Sans Condensed';font-size:21px;font-weight:600;margin-bottom:10px;}
+
+  .pins{list-style:none;margin:6px 0 16px;}
+  .pins li{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--rule);font-size:15px;max-width:74ch;}
+  .pins li:last-child{border-bottom:0;}
+  .pins .pin{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--copper);white-space:nowrap;min-width:96px;letter-spacing:.04em;}
+
+  .scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0;border:1.5px solid var(--ink);margin:20px 0 22px;}
+  .scenarios div{padding:14px 16px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);}
+  .scenarios .q{font-family:'IBM Plex Sans Condensed';font-weight:600;font-size:16.5px;display:block;margin-bottom:4px;}
+  .scenarios .a{font-size:13.5px;color:var(--dim);}
+  .callout{border-left:4px solid var(--copper);background:var(--copper-soft);padding:14px 18px;margin:18px 0;max-width:78ch;font-size:15.5px;}
+  .callout.green{border-left-color:var(--solder);background:var(--solder-soft);}
+  .callout.blue{border-left-color:var(--blue);background:var(--blue-soft);}
+  .callout b{font-weight:600;}
+
+  .diagram-wrap{border:1.5px solid var(--ink);background:#fff;padding:10px 6px 2px;overflow-x:auto;}
+  .diagram-wrap svg{display:block;min-width:720px;width:100%;height:auto;}
+  .fig-cap{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);padding:10px 4px 2px;border-top:1px solid var(--rule);margin-top:8px;}
+  .legend{display:flex;gap:22px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--dim);padding:10px 4px 12px;}
+  .legend span{display:inline-flex;align-items:center;gap:7px;}
+  .swatch{width:22px;height:12px;display:inline-block;border:1px solid var(--rule-dark);}
+  .blk{transition:filter .15s ease;}
+  .blk:hover{filter:brightness(0.96);}
+
+  .api-grid{display:grid;grid-template-columns:1fr;gap:28px;align-items:start;}
+  .tabs{display:flex;gap:0;border:1.5px solid var(--ink);border-bottom:0;flex-wrap:wrap;}
+  .tabs button{font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.03em;padding:10px 16px;background:var(--paper);border:0;border-right:1px solid var(--rule);cursor:pointer;color:var(--dim);}
+  .tabs button:focus-visible{outline:2px solid var(--copper);outline-offset:-2px;}
+  .tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper);}
+  .tabpanel{border:1.5px solid var(--ink);}
+  .tabpanel pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.8px;line-height:1.7;padding:18px 20px;overflow-x:auto;margin:0;}
+  .tabpanel .note{padding:12px 16px;font-size:14px;border-top:1.5px solid var(--ink);background:#fff;}
+  .verb{color:#E8B380;font-weight:600;}
+  .key{color:#8FBF9F;}
+  .str{color:#D9C87C;}
+  .cm2{color:#7B7F76;}
+
+  table{width:100%;border-collapse:collapse;border:1.5px solid var(--ink);font-size:14.5px;}
+  thead th{background:var(--ink);color:var(--paper);text-align:left;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:10px 14px;font-weight:600;}
+  tbody td{padding:11px 14px;border-bottom:1px solid var(--rule);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody td:first-child{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;}
+  td.win{color:var(--solder);font-weight:500;}
+  .table-scroll{overflow-x:auto;}
+
+  .apps{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px;}
+  .app{border:1.5px solid var(--ink);padding:18px 20px 14px;background:#fff;position:relative;}
+  .app::before{content:attr(data-ref);position:absolute;top:14px;right:16px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--rule-dark);letter-spacing:.06em;}
+  .app h3{font-size:19px;}
+  .app p{font-size:14.5px;margin-bottom:8px;}
+  .app .tools{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--copper);letter-spacing:.02em;}
+
+  .eco{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;}
+  .eco-col{border-top:3px solid var(--ink);padding-top:12px;}
+  .eco-col h3{font-size:16px;text-transform:uppercase;letter-spacing:.04em;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--dim);}
+  .eco-col ul{list-style:none;margin-top:8px;}
+  .eco-col li{padding:7px 0;border-bottom:1px dashed var(--rule);font-size:14.5px;}
+  .eco-col li b{font-weight:600;}
+  .eco-col li span{display:block;font-size:12.5px;color:var(--dim);}
+
+  .gotchas{counter-reset:g;max-width:78ch;}
+  .gotchas li{list-style:none;padding:14px 0 14px 52px;position:relative;border-bottom:1px solid var(--rule);}
+  .gotchas li::before{counter-increment:g;content:counter(g,decimal-leading-zero);position:absolute;left:0;top:16px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);}
+  .gotchas b{font-weight:600;}
+
+  .lab{border:1.5px solid var(--ink);background:#fff;margin-bottom:26px;}
+  .lab-head{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:baseline;padding:12px 18px;border-bottom:1.5px solid var(--ink);background:var(--solder-soft);}
+  .lab-head h3{font-size:20px;margin:0;color:var(--solder);}
+  .lab-head .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);}
+  .lab-body{padding:16px 18px 6px;}
+  .steps{list-style:none;counter-reset:s;}
+  .steps > li{counter-increment:s;position:relative;padding:12px 0 12px 56px;border-bottom:1px dashed var(--rule);}
+  .steps > li:last-child{border-bottom:0;}
+  .steps > li::before{content:"S" counter(s);position:absolute;left:0;top:14px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:var(--paper);background:var(--solder);padding:2px 8px;}
+  .steps p{font-size:15px;margin-bottom:6px;}
+  .steps pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.6px;line-height:1.7;padding:12px 16px;overflow-x:auto;margin:8px 0 4px;}
+  .steps .expect{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--solder);margin-top:4px;}
+
+  .glossary{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;}
+  @media(max-width:760px){.glossary{grid-template-columns:1fr;}}
+  .glossary dl{margin:0;}
+  .glossary .entry{padding:11px 0;border-bottom:1px dashed var(--rule);}
+  .glossary dt{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);letter-spacing:.03em;}
+  .glossary dd{font-size:14px;color:#2E312B;margin-top:2px;}
+
+  .reading{list-style:none;max-width:80ch;}
+  .reading li{padding:12px 0;border-bottom:1px dashed var(--rule);font-size:15px;}
+  .reading li:last-child{border-bottom:0;}
+  .reading .why{display:block;font-size:13.5px;color:var(--dim);margin-top:2px;}
+
+  footer{margin-top:64px;border-top:3px solid var(--ink);padding-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+
+  .mono, code, a.x, a.gl{overflow-wrap:anywhere;}
+  body{overflow-x:hidden;}
+  html{-webkit-text-size-adjust:100%;}
+  table{min-width:560px;}
+  @media (max-width:640px){
+    .sheet{padding:0 16px 60px;}
+    .steps > li{padding:40px 0 12px 0;}
+    .steps > li::before{top:10px;}
+    .gotchas li{padding:38px 0 14px 0;}
+    .gotchas li::before{top:12px;}
+    .pins li{display:block;}
+    .pins .pin{display:block;min-width:0;margin-bottom:2px;}
+    .tabpanel pre,.steps pre{font-size:11.8px;}
+    .tabs button{flex:1 1 auto;text-align:center;}
+    .spec-box{width:100%;min-width:0;}
+    .masthead{align-items:stretch;}
+    .fig-cap::before{content:"SWIPE \2192  ·  ";color:var(--copper);font-weight:600;}
+  }
+</style>
+
+  <!-- shipyard:meta -->
+  <meta name="description" content="The classifier that decides which model answers your request — launched today, and now part of Cursor&#x27;s Agent SDK, not just the desktop app.">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="assets/favicon-16.png" sizes="16x16" type="image/png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="manifest" href="assets/site.webmanifest">
+  <meta name="theme-color" content="#FAFAF6">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Explainers — A Personal Field Guide">
+  <meta property="og:title" content="Cursor Router — Technical Explainer">
+  <meta property="og:description" content="The classifier that decides which model answers your request — launched today, and now part of Cursor&#x27;s Agent SDK, not just the desktop app.">
+  <meta property="og:url" content="https://jacob-petterle.github.io/explainers/cursor-router-explainer.html">
+  <meta property="og:image" content="https://jacob-petterle.github.io/explainers/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Cursor Router — Technical Explainer">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Cursor Router — Technical Explainer">
+  <meta name="twitter:description" content="The classifier that decides which model answers your request — launched today, and now part of Cursor&#x27;s Agent SDK, not just the desktop app.">
+  <meta name="twitter:image" content="https://jacob-petterle.github.io/explainers/assets/og.png">
+  <!-- shipyard:meta -->
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <div class="doc-line">
+      <span>AI Coding Infrastructure &middot; Technical Explainer</span>
+      <span class="std">Cursor Router &middot; Anysphere</span>
+      <span>Sheet 1 of 1 &middot; Rev. 2026.07.22</span>
+    </div>
+    <div class="masthead">
+      <div>
+        <h1>CURSOR <span class="amp">&times;</span> ROUTER</h1>
+        <p class="subtitle">The classifier that decides which model answers your request — launched today, and now part of Cursor's Agent SDK, not just the desktop app.</p>
+      </div>
+      <div class="spec-box" aria-label="Quick reference">
+        <div><span class="k">Launched</span><b>Jul 22, 2026 (GA)</b></div>
+        <div><span class="k">Plans</span><b>Teams &amp; Enterprise</b></div>
+        <div><span class="k">Trained on</span><b>600k+ live requests</b></div>
+        <div><span class="k">Modes</span><b>Cost &middot; Balance &middot; Intelligence</b></div>
+        <div><span class="k">Reported savings</span><b>~30&ndash;60%</b></div>
+        <div><span class="k">Surfaces</span><b>Desktop, Web, iOS, CLI, SDK</b></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 1. WHAT -->
+  <section id="what">
+    <div class="sec-head"><span class="sec-num">1</span><h2>What it is</h2></div>
+    <div class="two-col">
+      <div class="def-card sw">
+        <div class="tag"><span>What you touch</span><span>UI</span></div>
+        <div class="body">
+          <p class="one-liner">The dial you turn.</p>
+          <p><a class="gl" href="#g-auto">Auto mode</a> is the setting in Cursor's model picker that hands a request to routing instead of a fixed model. It's existed for a while as a simple "pick something reasonable" mode &mdash; that's the part users already knew.</p>
+        </div>
+      </div>
+      <div class="def-card hw">
+        <div class="tag"><span>What actually runs it</span><span>Classifier</span></div>
+        <div class="body">
+          <p class="one-liner">The engine behind the dial.</p>
+          <p><a class="gl" href="#g-router">Cursor Router</a>, announced today, is a trained classifier that reads each request's query, context, task complexity, and domain, then assigns it to whichever model in Cursor's pool will do the job best for the money &mdash; and updates as new models ship.</p>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:24px" class="lead">The relationship in one sentence: <b>Auto mode is the switch; Cursor Router is what actually flips depending on the request.</b> Today's news is that the switch got a real engine behind it &mdash; and that engine is now reachable from code, via <a class="gl" href="#g-sdk">@cursor/sdk</a>, not just the apps.</p>
+  </section>
+
+  <!-- 2. JOB IT SOLVES -->
+  <section id="job">
+    <div class="sec-head"><span class="sec-num">2</span><h2>The job it solves</h2></div>
+    <p class="lead">Cursor's own numbers frame the problem: about 60% of developers pick one model and stick with it for everything, from one-line edits to genuinely hard refactors. That means routine work quietly gets billed at frontier prices.</p>
+    <div class="scenarios">
+      <div><span class="q">One model for everything</span><span class="a">A single daily-driver model handles trivial edits at the same price as hard problems.</span></div>
+      <div><span class="q">Spend outpaces output</span><span class="a">AI spend grows faster than the value it produces when every request pays frontier rates.</span></div>
+      <div><span class="q">Admins want a lever</span><span class="a">Teams need to cap cost without banning frontier models for the work that actually needs them.</span></div>
+      <div><span class="q">Models ship monthly</span><span class="a">Hand-picking a favorite model goes stale fast as new frontier models arrive.</span></div>
+    </div>
+    <div class="callout"><b>The core promise:</b> frontier-quality output at roughly 30&ndash;60% lower cost, without anyone having to hand-pick a model per request.</div>
+    <h3>What Cursor Router actually does</h3>
+    <ul class="pins">
+      <li><span class="pin">CLASSIFY</span>Scores each request on query, context, complexity, and domain before any model runs.</li>
+      <li><span class="pin">3 MODES</span><a class="gl" href="#g-mode">Cost, Balance, Intelligence</a> &mdash; you or your admin choose where to sit on the price/quality frontier.</li>
+      <li><span class="pin">CACHE-AWARE</span>Trained and evaluated with the cache-miss cost of switching models included, not hidden.</li>
+      <li><span class="pin">ADMIN</span>Per-team/group enablement, mode restrictions, default mode, model allow/block lists.</li>
+      <li><span class="pin">VISIBILITY</span>The routed model can be shown or hidden per request &mdash; hidden by default.</li>
+      <li><span class="pin">SDK-REACHABLE</span>Available programmatically through <span class="mono">@cursor/sdk</span>, not only the desktop/web/iOS apps.</li>
+    </ul>
+  </section>
+
+  <!-- 3. DIAGRAM -->
+  <section id="diagram">
+    <div class="sec-head"><span class="sec-num">3</span><h2>How it works — request flow</h2></div>
+    <p>Every Auto request passes through the classifier before a model ever sees it. The optimization mode you (or your admin) picked shifts where the classifier draws the line between cheap and expensive models. Outcomes feed back into future training.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 980 640" role="img" aria-label="Diagram showing a user request entering the Cursor Router classifier, which reads query, context, complexity and domain, is adjusted by a cost-balance-intelligence mode dial, and routes to one of three model tiers: price-efficient models, daily-driver frontier models, or frontier reasoning models. All three converge into a response, which is scored on user satisfaction and keep rate, and that score feeds back to retrain the classifier.">
+        <g class="blk"><rect x="20" y="250" width="160" height="90" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+          <text x="100" y="288" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700" fill="#17191B">YOUR</text>
+          <text x="100" y="306" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700" fill="#17191B">REQUEST</text>
+          <text x="100" y="326" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">chat, agent, or SDK call</text></g>
+
+        <path d="M180 295 L246 295" stroke="#17191B" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <rect x="250" y="150" width="230" height="290" fill="#FBF1E4" stroke="#B0632F" stroke-width="2.2"/>
+        <text x="365" y="182" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="19" font-weight="700" fill="#B0632F">CURSOR ROUTER</text>
+        <text x="365" y="202" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#63665C">the classifier</text>
+        <g font-family="IBM Plex Mono" font-size="10.5" fill="#17191B">
+          <text x="270" y="230">&bull; query</text>
+          <text x="270" y="248">&bull; context</text>
+          <text x="270" y="266">&bull; task complexity</text>
+          <text x="270" y="284">&bull; domain</text>
+        </g>
+        <rect x="266" y="304" width="198" height="106" fill="#FFFFFF" stroke="#B0632F" stroke-width="1.6" stroke-dasharray="5 3"/>
+        <text x="365" y="322" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#B0632F" letter-spacing="1">OPTIMIZATION MODE</text>
+        <text x="365" y="346" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="12.5" font-weight="600" fill="#0E5138">COST</text>
+        <text x="365" y="368" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="12.5" font-weight="600" fill="#1E4E79">BALANCE</text>
+        <text x="365" y="390" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="12.5" font-weight="600" fill="#B0632F">INTELLIGENCE</text>
+
+        <g stroke="#B0632F" stroke-width="1.8" fill="none">
+          <path d="M480 220 L560 100 L640 100" marker-end="url(#arrowg)"/>
+          <path d="M480 290 L640 290" marker-end="url(#arrowb)"/>
+          <path d="M480 360 L560 480 L640 480" marker-end="url(#arrowc)"/>
+        </g>
+
+        <rect x="640" y="60" width="220" height="90" fill="#FFFFFF" stroke="#0E5138" stroke-width="2"/>
+        <text x="750" y="94" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="14.5" font-weight="700" fill="#0E5138">PRICE-EFFICIENT</text>
+        <text x="750" y="112" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="14.5" font-weight="700" fill="#0E5138">MODELS</text>
+        <text x="750" y="132" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">routine edits, simple work</text>
+
+        <rect x="640" y="245" width="220" height="90" fill="#FFFFFF" stroke="#1E4E79" stroke-width="2"/>
+        <text x="750" y="279" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="14.5" font-weight="700" fill="#1E4E79">DAILY-DRIVER</text>
+        <text x="750" y="297" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="14.5" font-weight="700" fill="#1E4E79">FRONTIER MODELS</text>
+        <text x="750" y="317" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">UI, everyday coding</text>
+
+        <rect x="640" y="435" width="220" height="90" fill="#FFFFFF" stroke="#B0632F" stroke-width="2"/>
+        <text x="750" y="469" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="14.5" font-weight="700" fill="#B0632F">FRONTIER REASONING</text>
+        <text x="750" y="487" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="14.5" font-weight="700" fill="#B0632F">MODELS</text>
+        <text x="750" y="507" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">complex, long-horizon work</text>
+
+        <g stroke="#63665C" stroke-width="1.6" fill="none">
+          <path d="M860 105 L920 105 L920 290" />
+          <path d="M860 290 L920 290" />
+          <path d="M860 480 L920 480 L920 290" />
+        </g>
+        <path d="M920 290 L960 290" stroke="#17191B" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <rect x="900" y="255" width="1" height="1" opacity="0" />
+        <g class="blk"><rect x="862" y="245" width="0" height="0"/></g>
+
+        <rect x="10" y="565" width="960" height="60" fill="#F2F4EF" stroke="#9A9C92" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <text x="24" y="586" font-family="IBM Plex Mono" font-size="10" fill="#63665C" letter-spacing="1">FEEDBACK LOOP</text>
+        <text x="24" y="606" font-family="IBM Plex Mono" font-size="10.5" fill="#17191B">Response outcomes &rarr; scored on <tspan fill="#0E5138" font-weight="600">user satisfaction</tspan> &amp; <tspan fill="#0E5138" font-weight="600">keep rate</tspan> &rarr; retrains the classifier over time.</text>
+        <path d="M480 260 L480 565" stroke="#9A9C92" stroke-width="1.6" stroke-dasharray="4 3" />
+
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#17191B"/></marker>
+          <marker id="arrowg" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0E5138"/></marker>
+          <marker id="arrowb" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1E4E79"/></marker>
+          <marker id="arrowc" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#B0632F"/></marker>
+        </defs>
+      </svg>
+      <div class="legend">
+        <span><span class="swatch" style="background:#E3EEE7"></span>price-efficient tier</span>
+        <span><span class="swatch" style="background:#E1EAF2"></span>daily-driver frontier tier</span>
+        <span><span class="swatch" style="background:#F4E4D3"></span>frontier reasoning tier / classifier</span>
+        <span><span class="swatch" style="background:#F2F4EF"></span>feedback / retraining loop</span>
+      </div>
+      <div class="fig-cap">FIG. 3-1 &mdash; The classifier reads the request, the mode dial shifts the split point, and the outcome is scored to retrain future routing.</div>
+    </div>
+  </section>
+
+  <!-- 4. HANDS-ON -->
+  <section id="handson">
+    <div class="sec-head"><span class="sec-num">4</span><h2>Hands-on mechanics</h2></div>
+    <div class="api-grid">
+      <div>
+        <div class="tabs" role="tablist" aria-label="Cursor Router mechanics">
+          <button role="tab" aria-selected="true" data-tab="t1">TURN IT ON</button>
+          <button role="tab" aria-selected="false" data-tab="t2">SDK TYPES (VERIFIED)</button>
+          <button role="tab" aria-selected="false" data-tab="t3">COST PER COMMIT</button>
+          <button role="tab" aria-selected="false" data-tab="t4">ADMIN CONTROLS</button>
+        </div>
+        <div class="tabpanel">
+          <div id="t1" role="tabpanel">
+<pre><span class="cm2"># Desktop / Web / iOS / CLI</span>
+Model picker &rarr; <span class="verb">Auto</span> &rarr; choose optimization mode:
+  <span class="key">Cost</span> | <span class="key">Balance</span> | <span class="key">Intelligence</span>
+
+<span class="cm2"># Teams/Enterprise admins:</span>
+Dashboard &rarr; enable Cursor Router per team or group</pre>
+            <div class="note">Auto mode itself isn't new &mdash; what's new is the trained classifier now deciding behind it, plus the three explicit optimization modes.</div>
+          </div>
+          <div id="t2" role="tabpanel" hidden>
+<pre><span class="cm2">// dist/esm/options.d.ts — @cursor/sdk 1.0.24 (pulled from npm today)</span>
+<span class="verb">export interface</span> LocalAgentOptions {
+  <span class="cm2">/**
+   * Enable Cursor's Auto-review for local tool calls. When true,
+   * local runs select the classifier-backed Auto mode whenever
+   * the connected backend has the Auto-review classifier enabled.
+   */</span>
+  <span class="key">autoReview</span>?: boolean;
+}
+
+<span class="verb">export interface</span> AgentDefinition {
+  <span class="key">model</span>?: ModelSelection | <span class="str">"inherit"</span>;
+}</pre>
+            <div class="note">This is real, verified output from the published package (not a guess). The routing plumbing already exists in the SDK under the older name "Auto-review" / classifier-backed Auto mode &mdash; the public types hadn't yet been renamed to a first-class <span class="mono">Router</span> concept as of this package version, published ~2 days before today's announcement.</div>
+          </div>
+          <div id="t3" role="tabpanel" hidden>
+<pre><span class="cm2"># Cost per shipped commit, per Cursor's own launch numbers</span>
+<span class="key">BALANCE</span>          <span class="str">$4.63</span>
+<span class="key">INTELLIGENCE</span>     <span class="str">$6.76</span>
+<span class="key">GPT-5.6 SOL</span>      <span class="cm2">~matches Intelligence cost, lower satisfaction</span>
+<span class="key">OPUS 4.8</span>         <span class="str">$7.34</span>
+<span class="key">FABLE 5</span>          <span class="str">$12.69</span></pre>
+            <div class="note">Auto Intelligence lands near Fable on satisfaction at ~60% lower cost; Auto Balance beats Opus 4.8 on satisfaction at ~36% lower cost. Source: cursor.com/blog/router.</div>
+          </div>
+          <div id="t4" role="tabpanel" hidden>
+<pre><span class="cm2"># Dashboard → Cursor Router settings</span>
+enable:       per-team <span class="verb">|</span> per-group
+default mode: <span class="key">Cost</span> <span class="verb">|</span> <span class="key">Balance</span> <span class="verb">|</span> <span class="key">Intelligence</span>
+allow modes:  restrict which modes members can pick
+model list:   allow / block specific underlying models
+enforcement:  soft (nudge) <span class="verb">|</span> hard (require Auto)
+visibility:   show or hide the routed model (hidden by default)</pre>
+            <div class="note">Built for organizations, not just individuals &mdash; the control surface is as much the product as the classifier itself.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. ALTERNATIVES -->
+  <section id="alt">
+    <div class="sec-head"><span class="sec-num">5</span><h2>Alternatives &amp; comparables</h2></div>
+    <p>Cursor Router isn't the only way to avoid paying frontier prices for every request. It competes with manual model selection, general-purpose LLM gateways, and rolling your own routing logic.</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Aspect</th><th>Manual model pick</th><th>OpenRouter</th><th>DIY gateway (LiteLLM, etc.)</th><th>Cursor Router</th></tr></thead>
+      <tbody>
+        <tr><td>Setup effort</td><td class="win">None &mdash; already the default</td><td>Low &mdash; one API key</td><td>High &mdash; you build and maintain it</td><td class="win">None if on Teams/Enterprise</td></tr>
+        <tr><td>Routing intelligence</td><td>None &mdash; you decide every time</td><td>Static rules / user-picked, not learned</td><td>Whatever you code</td><td class="win">Classifier trained on 600k+ real coding requests</td></tr>
+        <tr><td>Model breadth</td><td>Whatever Cursor offers</td><td class="win">Hundreds of models, many providers</td><td class="win">Any provider you wire up</td><td>Curated pool Cursor has evaluated</td></tr>
+        <tr><td>Coding-specific tuning</td><td>N/A</td><td>Generic, not coding-specific</td><td>N/A unless you build it</td><td class="win">Tuned on Cursor's own agent traffic and keep-rate data</td></tr>
+        <tr><td>Admin governance</td><td>None</td><td>Limited</td><td>Whatever you build</td><td class="win">Per-team enablement, mode limits, model allow/block lists</td></tr>
+        <tr><td>Portability outside the tool</td><td>N/A</td><td class="win">Works with any client that speaks its API</td><td class="win">Fully yours, use anywhere</td><td>Only inside Cursor's apps and SDK</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="callout blue" style="margin-top:20px">
+      <p style="margin:0 0 6px"><b>PICK MANUAL SELECTION WHEN</b> you know exactly which model a task needs and want zero routing variance.</p>
+      <p style="margin:0 0 6px"><b>PICK OPENROUTER WHEN</b> you need a portable, provider-wide gateway usable outside Cursor entirely.</p>
+      <p style="margin:0 0 6px"><b>PICK A DIY GATEWAY WHEN</b> you need custom routing logic tied to your own product, not just a coding agent.</p>
+      <p style="margin:0"><b>PICK CURSOR ROUTER WHEN</b> your team has standardized on Cursor and wants frontier-quality output without babysitting a model picker.</p>
+    </div>
+  </section>
+
+  <!-- 6. APPLICATIONS -->
+  <section id="apps">
+    <div class="sec-head"><span class="sec-num">6</span><h2>Common applications</h2></div>
+    <div class="apps">
+      <div class="app" data-ref="APP-01">
+        <h3>Enterprise cost governance</h3>
+        <p>An engineering org standardizes hundreds of developers on Auto, sets a default optimization mode, and caps AI spend without banning frontier models outright.</p>
+        <p class="tools">Dashboard admin controls &middot; soft/hard enforcement</p>
+      </div>
+      <div class="app" data-ref="APP-02">
+        <h3>SDK-embedded products</h3>
+        <p>A team builds its own tool on <span class="mono">@cursor/sdk</span> and inherits routing for free instead of hard-coding a single model into their product.</p>
+        <p class="tools">@cursor/sdk &middot; AgentDefinition.model</p>
+      </div>
+      <div class="app" data-ref="APP-03">
+        <h3>CI / cloud agent fleets</h3>
+        <p>Automated agents running in the cloud at volume get routed per-task, so a fleet of routine PR-fixups doesn't get billed at the same rate as a hard migration.</p>
+        <p class="tools">Cloud agents &middot; cost-per-commit tracking</p>
+      </div>
+      <div class="app" data-ref="APP-04">
+        <h3>Individual daily-driver replacement</h3>
+        <p>A developer who used to hand-pick one model each session switches to Auto and lets routing pick per request instead.</p>
+        <p class="tools">Model picker &middot; Auto Balance</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. ECOSYSTEM -->
+  <section id="eco">
+    <div class="sec-head"><span class="sec-num">7</span><h2>The ecosystem — names you'll run into</h2></div>
+    <div class="eco">
+      <div class="eco-col">
+        <h3>The company</h3>
+        <ul>
+          <li><b>Anysphere</b><span>the company behind Cursor</span></li>
+          <li><b>Cursor</b><span>the AI-native IDE / agent product</span></li>
+        </ul>
+      </div>
+      <div class="eco-col">
+        <h3>Models in the routed pool</h3>
+        <ul>
+          <li><b>Composer 2</b><span>Cursor's own in-house model</span></li>
+          <li><b>Fable 5 / Opus 4.8</b><span>Anthropic Claude family, used as quality benchmarks</span></li>
+          <li><b>GPT-5.6 Sol</b><span>OpenAI model referenced in launch comparisons</span></li>
+          <li><b>Grok 4.5</b><span>xAI model, widens the price-efficient option pool</span></li>
+        </ul>
+      </div>
+      <div class="eco-col">
+        <h3>SDK &amp; surfaces</h3>
+        <ul>
+          <li><b><a class="x" href="https://www.npmjs.com/package/@cursor/sdk" target="_blank" rel="noopener">@cursor/sdk</a></b><span>TypeScript package this router is now exposed through</span></li>
+          <li><b><a class="x" href="https://github.com/cursor/cookbook" target="_blank" rel="noopener">cursor/cookbook</a></b><span>official example repo for the SDK</span></li>
+        </ul>
+      </div>
+      <div class="eco-col">
+        <h3>Metrics Cursor uses internally</h3>
+        <ul>
+          <li><b>AFC</b><span>satisfaction-based reward signal used to train the classifier</span></li>
+          <li><b><a class="gl" href="#g-keeprate">Keep rate</a></b><span>how much agent-written code survives in the codebase over time</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. GOTCHAS -->
+  <section id="know">
+    <div class="sec-head"><span class="sec-num">8</span><h2>Things worth knowing</h2></div>
+    <ul class="gotchas">
+      <li><b>Teams/Enterprise only, for now.</b> Cursor's own changelog says it's "on by default for Teams plans" and enabled by Enterprise admins &mdash; there's no mention of GA for individual free/Pro accounts yet.</li>
+      <li><b>"Savings" are relative, not free.</b> Balance and Intelligence modes still bill at the routed model's own rate; the reported 30&ndash;60% savings are versus always calling the most expensive frontier model, not versus zero cost.</li>
+      <li><b>The routed model is hidden by default.</b> If you need to know which model actually answered &mdash; for debugging or compliance &mdash; you (or your admin) have to turn on display, or check admin-side logs.</li>
+      <li><b>Trained on Cursor's aggregate traffic, not your codebase.</b> The classifier learns from 600k+ live requests and broad A/B tests across "thousands of enterprise developers." Your mileage on unusual domains may differ from the published averages.</li>
+      <li><b>Switching models mid-conversation costs a cache miss.</b> Cursor says its reported savings already account for this, but it's a real latency/cost hit worth knowing is happening under the hood.</li>
+      <li><b>The public SDK hadn't caught up to the branding as of this writing.</b> The npm package (@cursor/sdk 1.0.24, published ~2 days before this launch) still exposes the mechanism under its older internal name (<span class="mono">autoReview</span> / classifier-backed Auto mode) rather than a first-class <span class="mono">Router</span> type &mdash; expect the typed API surface to catch up in a near-term release.</li>
+      <li><b>Try it yourself with zero risk</b> &mdash; Section 9 walks through inspecting exactly what shipped in the SDK today, the same way this brief was researched.</li>
+    </ul>
+  </section>
+
+  <!-- 9. LABS -->
+  <section id="lab">
+    <div class="sec-head"><span class="sec-num">9</span><h2>Run it yourself</h2></div>
+    <p class="lead">You don't need Teams/Enterprise access to verify what's actually in the public SDK today &mdash; you can inspect the exact same package this brief is based on.</p>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB A — Flip Auto mode on</h3><span class="meta">~2 min · needs a Cursor account</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li><p><b>Open the model picker</b> in Cursor (desktop, web, or CLI) and select <span class="mono">Auto</span> instead of a named model.</p></li>
+          <li><p><b>Choose an optimization mode</b> &mdash; Cost, Balance, or Intelligence &mdash; and run a normal request.</p><p class="expect">EXPECT: the request completes normally; on Teams/Enterprise with Router enabled, the model actually used may be visible depending on your admin's visibility setting.</p></li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB B — Inspect the shipped SDK yourself</h3><span class="meta">~10 min · needs Node.js</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li><p><b>Check what version is live</b> and pull it down without installing anything globally:</p>
+<pre>npm view @cursor/sdk version
+mkdir sdk-check && cd sdk-check
+npm pack @cursor/sdk
+tar xzf cursor-sdk-*.tgz</pre>
+            <p class="expect">EXPECT: a package/ folder containing dist/esm/*.d.ts type definitions.</p>
+          </li>
+          <li><p><b>Grep for routing-related fields</b> &mdash; this is exactly how the "SDK Types" tab in Section 4 was verified:</p>
+<pre>grep -rn -i "router\|autoReview\|classifier\|ModelSelection" package/dist/esm/*.d.ts</pre>
+            <p class="expect">EXPECT: hits in options.d.ts (autoReview, ModelSelection, AgentDefinition) — the same excerpt shown above.</p>
+          </li>
+          <li><p><b>Compare against the docs</b> at <a class="x" href="https://cursor.com/docs/api/sdk/typescript" target="_blank" rel="noopener">cursor.com/docs/api/sdk/typescript</a> to see if a first-class Router API has landed since this brief was written.</p></li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB C — Pilot it on a team</h3><span class="meta">optional · needs Teams/Enterprise admin</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li><p><b>Enable Cursor Router for one group</b> from the Cursor Dashboard, set the default mode to Balance, and leave visibility on so you can see what's being routed.</p></li>
+          <li><p><b>Track cost per commit for a week</b> and compare it against the published baseline numbers in Section 4 (Tab 3) for your own workload.</p></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. GLOSSARY -->
+  <section id="glossary">
+    <div class="sec-head"><span class="sec-num">10</span><h2>Glossary — the jargon, decoded</h2></div>
+    <div class="glossary">
+      <dl>
+        <div class="entry" id="g-router"><dt>Cursor Router</dt><dd>Anysphere's intelligent model router, launched July 22, 2026: a classifier that assigns each Auto request to the model expected to perform best for the cost. <a class="x" href="https://cursor.com/blog/router" target="_blank" rel="noopener">announcement</a></dd></div>
+        <div class="entry" id="g-auto"><dt>Auto mode</dt><dd>The model-picker setting that delegates model choice to routing instead of a fixed model. Predates Cursor Router; now powered by it.</dd></div>
+        <div class="entry" id="g-classifier"><dt>Classifier</dt><dd>A model trained to categorize input &mdash; here, trained on 600k+ real coding requests to predict which downstream model will satisfy the user best per request.</dd></div>
+        <div class="entry" id="g-mode"><dt>Optimization mode</dt><dd>Cost, Balance, or Intelligence &mdash; a dial that shifts Cursor Router along the cost/quality Pareto frontier.</dd></div>
+        <div class="entry" id="g-pareto"><dt>Pareto frontier</dt><dd>The curve of "best possible quality for a given cost" options; moving along it trades one for the other rather than improving both at once.</dd></div>
+      </dl>
+      <dl>
+        <div class="entry" id="g-keeprate"><dt>Keep rate</dt><dd>How much agent-generated code remains in the codebase over time &mdash; one of two metrics (with user satisfaction) Cursor uses to judge routing quality.</dd></div>
+        <div class="entry" id="g-sdk"><dt>@cursor/sdk</dt><dd>Cursor's TypeScript package for running Cursor's coding agent from your own code. <a class="x" href="https://www.npmjs.com/package/@cursor/sdk" target="_blank" rel="noopener">npm</a></dd></div>
+        <div class="entry" id="g-autoreview"><dt>autoReview (SDK field)</dt><dd>A boolean on <span class="mono">LocalAgentOptions</span> that enables "classifier-backed Auto mode" &mdash; the SDK's current (pre-rebrand) name for Cursor Router's underlying mechanism.</dd></div>
+        <div class="entry" id="g-modelselection"><dt>ModelSelection (SDK type)</dt><dd>The typed shape (<span class="mono">{ id, params? }</span>) used to pin an <span class="mono">AgentDefinition</span> to a specific model, or set <span class="mono">"inherit"</span>.</dd></div>
+      </dl>
+    </div>
+
+    <h3 style="margin-top:36px;border-top:1.5px solid var(--ink);padding-top:18px">Further reading — where to go deeper</h3>
+    <ul class="reading">
+      <li><a class="x" href="https://cursor.com/blog/router" target="_blank" rel="noopener">Introducing Cursor Router (announcement)</a><span class="why">The primary source for every number in this brief: methodology, A/B test results, and customer cost data.</span></li>
+      <li><a class="x" href="https://cursor.com/changelog/router" target="_blank" rel="noopener">Cursor Router changelog entry</a><span class="why">The terse, feature-by-feature version: what shipped, admin controls, and plan availability.</span></li>
+      <li><a class="x" href="https://cursor.com/docs/cursor-router" target="_blank" rel="noopener">Cursor Router docs</a><span class="why">Reference docs on modes, pricing, and team settings (JS-rendered; open in a browser).</span></li>
+      <li><a class="x" href="https://www.npmjs.com/package/@cursor/sdk" target="_blank" rel="noopener">@cursor/sdk on npm</a><span class="why">The actual published package &mdash; check here for when a first-class Router type lands in the types.</span></li>
+      <li><a class="x" href="https://github.com/cursor/cookbook" target="_blank" rel="noopener">cursor/cookbook on GitHub</a><span class="why">Official runnable examples for building on the SDK, including a coding-agent CLI and a cloud-agent kanban board.</span></li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>SOURCES: cursor.com/blog/router &middot; cursor.com/changelog/router &middot; npmjs.com/package/@cursor/sdk (v1.0.24, inspected directly) &middot; github.com/cursor/cookbook</span>
+    <span>CURSOR ROUTER — EXPLAINER &middot; REV. 2026.07.22</span>
+  </footer>
+</div>
+
+<script type="application/json" id="knowledge-manifest">
+{
+  "topic": "Cursor Router — Cursor's intelligent model router",
+  "concepts": [
+    {"term":"Cursor Router","oneliner":"A trained classifier that routes each Cursor request to the best model for the job."},
+    {"term":"Auto mode","oneliner":"The model-picker setting that delegates model choice to routing."},
+    {"term":"Optimization mode (Cost/Balance/Intelligence)","oneliner":"A dial that shifts routing along the cost-vs-quality frontier."},
+    {"term":"Classifier","oneliner":"The model trained on 600k+ requests that scores query, context, complexity, and domain."},
+    {"term":"Pareto frontier","oneliner":"The curve of best-quality-for-cost tradeoffs a mode dial moves you along."},
+    {"term":"Keep rate","oneliner":"How much AI-generated code survives in the codebase over time; a quality metric."},
+    {"term":"AFC / user satisfaction","oneliner":"A reward signal derived from whether users accept or correct agent output."},
+    {"term":"Cache-aware routing","oneliner":"Routing decisions that account for the extra cost of a cache miss when switching models."},
+    {"term":"@cursor/sdk","oneliner":"Cursor's TypeScript package for running Cursor's agent programmatically."},
+    {"term":"autoReview (SDK field)","oneliner":"The SDK's current field name for enabling classifier-backed Auto mode, pre-dating the Router rebrand."},
+    {"term":"ModelSelection (SDK type)","oneliner":"Typed shape for pinning an agent to a specific model or inheriting the default."},
+    {"term":"Composer 2","oneliner":"Cursor's in-house model, one option in the routed model pool."}
+  ],
+  "mechanisms": [
+    "Request enters -> classifier reads query/context/complexity/domain -> mode dial shifts routing threshold -> request assigned to one of three model tiers (price-efficient, daily-driver frontier, frontier reasoning) -> response returned -> outcome scored on user satisfaction and keep rate -> score retrains classifier over time."
+  ],
+  "scenarios": [
+    "A solo developer on the free plan wants Cursor Router — what's actually available to them today, and what isn't?",
+    "An engineering lead wants to force every request through Balance mode team-wide but let one research group use Intelligence — what admin settings make that possible?",
+    "A developer needs to know which model handled a specific request for a compliance audit — what's blocking them by default, and how do they fix it?",
+    "A team builds a product on @cursor/sdk before the public types are renamed — how would they enable the classifier-backed behavior today versus after a Router-named API ships?"
+  ]
+}
+</script>
+
+<script>
+  const tabs = document.querySelectorAll('.tabs [role="tab"]');
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(b => b.setAttribute('aria-selected', b === btn ? 'true' : 'false'));
+      document.querySelectorAll('.tabpanel [role="tabpanel"]').forEach(p => {
+        p.hidden = (p.id !== btn.dataset.tab);
+      });
+    });
+  });
+  (function(){
+    const pop = document.createElement('div');
+    pop.id = 'glpop';
+    document.body.appendChild(pop);
+    let pinned = false;
+
+    function fill(link){
+      const id = (link.getAttribute('href')||'').slice(1);
+      const entry = document.getElementById(id);
+      if(!entry) return false;
+      const dt = entry.querySelector('dt');
+      const dd = entry.querySelector('dd');
+      if(!dt || !dd) return false;
+      const ext = dd.querySelector('a');
+      const def = dd.cloneNode(true);
+      def.querySelectorAll('a').forEach(a => a.remove());
+      pop.innerHTML =
+        '<span class="t">' + dt.textContent + '</span>' + def.innerHTML +
+        '<div class="links">' +
+        (ext ? '<a href="' + ext.href + '" target="_blank" rel="noopener">Dive deeper ↗</a>' : '') +
+        '<a href="#' + id + '" class="jump">Full glossary ↓</a></div>';
+      return true;
+    }
+    function show(link){
+      if(!fill(link)) return;
+      const r = link.getBoundingClientRect();
+      pop.style.display = 'block';
+      const pw = Math.min(300, window.innerWidth - 24);
+      pop.style.maxWidth = pw + 'px';
+      let x = window.scrollX + r.left;
+      const maxX = window.scrollX + window.innerWidth - pop.offsetWidth - 12;
+      if(x > maxX) x = Math.max(window.scrollX + 12, maxX);
+      pop.style.left = x + 'px';
+      pop.style.top = (window.scrollY + r.bottom + 8) + 'px';
+    }
+    function hide(){ pop.style.display = 'none'; pinned = false; }
+
+    document.querySelectorAll('a.gl').forEach(link => {
+      link.addEventListener('mouseenter', () => { if(!pinned) show(link); });
+      link.addEventListener('mouseleave', () => {
+        setTimeout(() => { if(!pinned && !pop.matches(':hover')) hide(); }, 120);
+      });
+      link.addEventListener('click', (e) => { e.preventDefault(); pinned = true; show(link); });
+    });
+    pop.addEventListener('mouseleave', () => { if(!pinned) hide(); });
+    pop.addEventListener('click', (e) => { if(e.target.classList.contains('jump')) hide(); });
+    document.addEventListener('click', (e) => {
+      if(pinned && !pop.contains(e.target) && !e.target.closest('a.gl')) hide();
+    });
+    window.addEventListener('scroll', () => { if(!pinned) hide(); }, {passive:true});
+  })();
+</script>
+</body>
+</html>

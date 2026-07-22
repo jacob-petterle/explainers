@@ -58,6 +58,7 @@
   .obs .tag{background:var(--solder-soft);color:var(--solder);}
   .data .tag{background:#EFE7D6;color:#7A5A12;}
   .k8s .tag{background:#ECE3F5;color:#5B3A82;}
+  .ai .tag{background:#D8ECEE;color:#1C6470;}
 
   footer{margin-top:64px;border-top:3px solid var(--ink);padding-top:20px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
   footer a{color:var(--copper);font-weight:600;}
@@ -101,7 +102,7 @@
       </div>
       <div class="spec-box" aria-label="Collection reference">
         <div><span class="k">Format</span><b>self-contained HTML</b></div>
-        <div><span class="k">Entries</span><b>13 &amp; counting</b></div>
+        <div><span class="k">Entries</span><b>14 &amp; counting</b></div>
         <div><span class="k">Topics</span><b>open-ended</b></div>
         <div><span class="k">Approach</span><b>first-principles</b></div>
       </div>
@@ -186,6 +187,16 @@
       <a class="card" href="temporal-explainer.html">
         <div class="tag"><span>Durable Execution</span><span class="arrow">→</span></div>
         <div class="body"><h3>Temporal</h3><p>Write multi-step business logic as ordinary code, and the platform guarantees it runs to completion — through crashes, deploys, and outages — whether it takes seconds or months.</p></div>
+      </a>
+    </div>
+  </section>
+
+  <section id="ai-coding" class="ai">
+    <div class="sec-head"><span class="sec-num">06</span><h2>AI Coding &amp; Agents</h2><span class="sec-count">1 entry</span></div>
+    <div class="grid">
+      <a class="card" href="cursor-router-explainer.html">
+        <div class="tag"><span>Model Routing</span><span class="arrow">→</span></div>
+        <div class="body"><h3>Cursor Router</h3><p>The trained classifier that decides which model answers each request — Auto mode is the switch, the Router is what flips behind it, and it's now reachable from code via the Agent SDK, not just the desktop app.</p></div>
       </a>
     </div>
   </section>
