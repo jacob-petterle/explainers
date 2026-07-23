@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Go — Technical Explainer (for Python &amp; TypeScript developers)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAFAF6;
+    --ink:#17191B;
+    --copper:#B0632F;
+    --copper-soft:#F4E4D3;
+    --solder:#0E5138;
+    --solder-soft:#E3EEE7;
+    --blue:#1E4E79;
+    --blue-soft:#E1EAF2;
+    --rule:#D8D8CE;
+    --rule-dark:#9A9C92;
+    --dim:#63665C;
+    --code-bg:#1E211F;
+    --code-ink:#E8EAE2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+  }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans',system-ui,sans-serif;
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .sheet{max-width:1080px;margin:0 auto;padding:0 28px 80px;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  h1,h2,h3{font-family:'IBM Plex Sans Condensed',sans-serif;line-height:1.12;}
+
+  /* links */
+  a.x{color:var(--copper);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;text-decoration-color:#D9B08C;}
+  a.x:hover{text-decoration-color:var(--copper);}
+  a.x::after{content:"\2197";font-size:.72em;vertical-align:super;margin-left:1px;}
+  a.gl{color:inherit;text-decoration:underline dotted 1.5px var(--rule-dark);text-underline-offset:3px;}
+  a.gl:hover{text-decoration-color:var(--copper);color:var(--copper);}
+  a:focus-visible{outline:2px solid var(--copper);outline-offset:2px;}
+
+  /* ---------- glossary popover (hover on desktop / tap on mobile) ---------- */
+  a.gl{cursor:help;}
+  #glpop{position:absolute;z-index:50;max-width:300px;background:var(--ink);color:var(--paper);padding:12px 14px;font-size:13.5px;line-height:1.55;border:1.5px solid var(--copper);box-shadow:4px 4px 0 rgba(23,25,27,.18);display:none;}
+  #glpop .t{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#E8B380;display:block;margin-bottom:4px;letter-spacing:.05em;text-transform:uppercase;}
+  #glpop .links{margin-top:9px;display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;font-family:'IBM Plex Mono',monospace;}
+  #glpop a{color:#E8B380;font-weight:600;text-decoration:underline;text-underline-offset:2px;}
+  #glpop .mono{color:#D9C87C;}
+
+  /* ---------- Datasheet header ---------- */
+  header{border-bottom:3px solid var(--ink);padding:26px 0 22px;}
+  .doc-line{
+    display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--dim);
+    border-bottom:1px solid var(--rule);padding-bottom:12px;margin-bottom:24px;
+  }
+  .doc-line .std{color:var(--copper);font-weight:600;}
+  .masthead{display:flex;gap:32px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;}
+  h1{font-size:clamp(38px,6vw,62px);font-weight:700;letter-spacing:-.01em;}
+  h1 .amp{color:var(--copper);}
+  .subtitle{max-width:560px;margin-top:12px;font-size:17px;color:#2E312B;}
+  .spec-box{border:1.5px solid var(--ink);min-width:270px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  .spec-box div{display:flex;justify-content:space-between;gap:18px;padding:7px 12px;border-bottom:1px solid var(--rule);}
+  .spec-box div:last-child{border-bottom:0;}
+  .spec-box b{font-weight:600;}
+  .spec-box .k{color:var(--dim);}
+
+  /* ---------- Sections ---------- */
+  section{padding:52px 0 8px;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1.5px solid var(--ink);padding-bottom:10px;margin-bottom:28px;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--paper);background:var(--ink);padding:3px 9px;}
+  h2{font-size:clamp(24px,3.4vw,32px);font-weight:700;}
+  h3{font-size:18px;font-weight:600;margin-bottom:8px;}
+  p{margin-bottom:14px;max-width:74ch;}
+  .lead{font-size:17.5px;}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+  @media(max-width:760px){.two-col{grid-template-columns:1fr;}}
+
+  .def-card{border:1.5px solid var(--ink);}
+  .def-card .tag{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;border-bottom:1.5px solid var(--ink);display:flex;justify-content:space-between;}
+  .def-card.hw .tag{background:var(--solder-soft);color:var(--solder);}
+  .def-card.sw .tag{background:var(--copper-soft);color:var(--copper);}
+  .def-card .body{padding:16px 18px 6px;}
+  .def-card .one-liner{font-family:'IBM Plex Sans Condensed';font-size:21px;font-weight:600;margin-bottom:10px;}
+
+  .pins{list-style:none;margin:6px 0 16px;}
+  .pins li{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--rule);font-size:15px;max-width:74ch;}
+  .pins li:last-child{border-bottom:0;}
+  .pins .pin{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--copper);white-space:nowrap;min-width:104px;letter-spacing:.04em;}
+
+  .scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0;border:1.5px solid var(--ink);margin:20px 0 22px;}
+  .scenarios div{padding:14px 16px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);}
+  .scenarios .q{font-family:'IBM Plex Sans Condensed';font-weight:600;font-size:16.5px;display:block;margin-bottom:4px;}
+  .scenarios .a{font-size:13.5px;color:var(--dim);}
+  .callout{border-left:4px solid var(--copper);background:var(--copper-soft);padding:14px 18px;margin:18px 0;max-width:78ch;font-size:15.5px;}
+  .callout.green{border-left-color:var(--solder);background:var(--solder-soft);}
+  .callout.blue{border-left-color:var(--blue);background:var(--blue-soft);}
+  .callout b{font-weight:600;}
+
+  /* inline "vs Python / vs TS" contrast chip */
+  .vs{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-soft);padding:1px 6px;white-space:nowrap;}
+
+  /* ---------- Block diagram ---------- */
+  .diagram-wrap{border:1.5px solid var(--ink);background:#fff;padding:10px 6px 2px;overflow-x:auto;}
+  .diagram-wrap svg{display:block;min-width:720px;width:100%;height:auto;}
+  .fig-cap{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);padding:10px 4px 2px;border-top:1px solid var(--rule);margin-top:8px;}
+  .legend{display:flex;gap:22px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--dim);padding:10px 4px 12px;}
+  .legend span{display:inline-flex;align-items:center;gap:7px;}
+  .swatch{width:22px;height:12px;display:inline-block;border:1px solid var(--rule-dark);}
+  .blk{transition:filter .15s ease;}
+  .blk:hover{filter:brightness(0.96);}
+
+  /* ---------- code / API section ---------- */
+  .api-grid{display:grid;grid-template-columns:360px 1fr;gap:28px;align-items:start;}
+  @media(max-width:860px){.api-grid{grid-template-columns:1fr;}}
+  .tree{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.6px;line-height:1.8;padding:18px 20px;overflow-x:auto;white-space:pre;}
+  .tree .r{color:#E8B380;}
+  .tree .c{color:#8FBF9F;}
+  .tree .cm{color:#7B7F76;}
+  .tree .s{color:#D9C87C;}
+  .tabs{display:flex;gap:0;border:1.5px solid var(--ink);border-bottom:0;flex-wrap:wrap;}
+  .tabs button{font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.03em;padding:10px 16px;background:var(--paper);border:0;border-right:1px solid var(--rule);cursor:pointer;color:var(--dim);}
+  .tabs button:focus-visible{outline:2px solid var(--copper);outline-offset:-2px;}
+  .tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper);}
+  .tabpanel{border:1.5px solid var(--ink);}
+  .tabpanel pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.8px;line-height:1.7;padding:18px 20px;overflow-x:auto;margin:0;}
+  .tabpanel .note{padding:12px 16px;font-size:14px;border-top:1.5px solid var(--ink);background:#fff;}
+  .verb{color:#E8B380;font-weight:600;}
+  .key{color:#8FBF9F;}
+  .str{color:#D9C87C;}
+  .cm2{color:#7B7F76;}
+
+  /* ---------- Comparison table ---------- */
+  table{width:100%;border-collapse:collapse;border:1.5px solid var(--ink);font-size:14.5px;}
+  thead th{background:var(--ink);color:var(--paper);text-align:left;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:10px 14px;font-weight:600;}
+  tbody td{padding:11px 14px;border-bottom:1px solid var(--rule);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody td:first-child{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;}
+  td.win{color:var(--solder);font-weight:500;}
+  .table-scroll{overflow-x:auto;}
+
+  .picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:0;border:1.5px solid var(--ink);margin-top:22px;}
+  .picks div{padding:14px 16px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);}
+  .picks .l{font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;letter-spacing:.05em;display:block;margin-bottom:5px;}
+  .picks .go .l{color:var(--solder);}
+  .picks .py .l{color:var(--blue);}
+  .picks .ts .l{color:var(--blue);}
+  .picks .rs .l{color:var(--copper);}
+  .picks p{font-size:13.5px;color:#2E312B;margin:0;}
+
+  /* ---------- Applications grid ---------- */
+  .apps{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px;}
+  .app{border:1.5px solid var(--ink);padding:18px 20px 14px;background:#fff;position:relative;}
+  .app::before{content:attr(data-ref);position:absolute;top:14px;right:16px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--rule-dark);letter-spacing:.06em;}
+  .app h3{font-size:19px;}
+  .app p{font-size:14.5px;margin-bottom:8px;}
+  .app .tools{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--copper);letter-spacing:.02em;}
+
+  /* ---------- ecosystem ---------- */
+  .eco{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;}
+  .eco-col{border-top:3px solid var(--ink);padding-top:12px;}
+  .eco-col h3{font-size:16px;text-transform:uppercase;letter-spacing:.04em;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--dim);}
+  .eco-col ul{list-style:none;margin-top:8px;}
+  .eco-col li{padding:7px 0;border-bottom:1px dashed var(--rule);font-size:14.5px;}
+  .eco-col li b{font-weight:600;}
+  .eco-col li span{display:block;font-size:12.5px;color:var(--dim);}
+
+  /* ---------- gotchas ---------- */
+  .gotchas{counter-reset:g;max-width:80ch;}
+  .gotchas li{list-style:none;padding:14px 0 14px 52px;position:relative;border-bottom:1px solid var(--rule);}
+  .gotchas li::before{counter-increment:g;content:counter(g,decimal-leading-zero);position:absolute;left:0;top:16px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);}
+  .gotchas b{font-weight:600;}
+
+  /* ---------- LAB (procedure) ---------- */
+  .lab{border:1.5px solid var(--ink);background:#fff;margin-bottom:26px;}
+  .lab-head{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:baseline;padding:12px 18px;border-bottom:1.5px solid var(--ink);background:var(--solder-soft);}
+  .lab-head h3{font-size:20px;margin:0;color:var(--solder);}
+  .lab-head .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);}
+  .lab-body{padding:16px 18px 6px;}
+  .steps{list-style:none;counter-reset:s;}
+  .steps > li{counter-increment:s;position:relative;padding:12px 0 12px 56px;border-bottom:1px dashed var(--rule);}
+  .steps > li:last-child{border-bottom:0;}
+  .steps > li::before{
+    content:"S" counter(s);position:absolute;left:0;top:14px;
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;
+    color:var(--paper);background:var(--solder);padding:2px 8px;
+  }
+  .steps p{font-size:15px;margin-bottom:6px;}
+  .steps pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.6px;line-height:1.7;padding:12px 16px;overflow-x:auto;margin:8px 0 4px;}
+  .steps .expect{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--solder);margin-top:4px;}
+
+  /* ---------- glossary ---------- */
+  .glossary{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;}
+  @media(max-width:760px){.glossary{grid-template-columns:1fr;}}
+  .glossary dl{margin:0;}
+  .glossary .entry{padding:11px 0;border-bottom:1px dashed var(--rule);}
+  .glossary dt{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);letter-spacing:.03em;}
+  .glossary dd{font-size:14px;color:#2E312B;margin-top:2px;}
+
+  /* ---------- further reading ---------- */
+  .reading{list-style:none;max-width:80ch;}
+  .reading li{padding:12px 0;border-bottom:1px dashed var(--rule);font-size:15px;}
+  .reading li:last-child{border-bottom:0;}
+  .reading .why{display:block;font-size:13.5px;color:var(--dim);margin-top:2px;}
+
+  footer{margin-top:64px;border-top:3px solid var(--ink);padding-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+
+  /* ================= MOBILE RULES ================= */
+  /* R1 — no token sets page width */
+  .mono, code, a.x, a.gl{overflow-wrap:anywhere;}
+  /* R2 — the page never pans sideways; only opted-in regions scroll */
+  body{overflow-x:hidden;}
+  html{-webkit-text-size-adjust:100%;}
+  /* R3 — wide content keeps a readable min width and scrolls in-container */
+  table{min-width:560px;}
+  @media (max-width:640px){
+    /* R4 — reclaim gutters */
+    .sheet{padding:0 16px 60px;}
+    /* R5 — hanging indents collapse: markers move above their text */
+    .steps > li{padding:40px 0 12px 0;}
+    .steps > li::before{top:10px;}
+    .gotchas li{padding:38px 0 14px 0;}
+    .gotchas li::before{top:12px;}
+    .pins li{display:block;}
+    .pins .pin{display:block;min-width:0;margin-bottom:2px;}
+    /* R6 — code: slightly smaller beats wrapping */
+    .tree,.tabpanel pre,.steps pre{font-size:11.8px;}
+    /* R7 — controls & meta boxes go full-width */
+    .tabs button{flex:1 1 auto;text-align:center;}
+    .spec-box{width:100%;min-width:0;}
+    .masthead{align-items:stretch;}
+    /* R8 — tell the thumb wide figures scroll */
+    .fig-cap::before{content:"SWIPE \2192  ·  ";color:var(--copper);font-weight:600;}
+  }
+</style>
+
+  <!-- shipyard:meta -->
+  <meta name="description" content="A statically typed, compiled language with a scripting-language feel — built at Google to make large teams and concurrent systems boring, in the best way. Read here through a Python/TypeScript lens, aimed at writing and reviewing a Pulumi construct.">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="assets/favicon-16.png" sizes="16x16" type="image/png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="manifest" href="assets/site.webmanifest">
+  <meta name="theme-color" content="#FAFAF6">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Explainers — A Personal Field Guide">
+  <meta property="og:title" content="Go — Technical Explainer (for Python &amp; TypeScript developers)">
+  <meta property="og:description" content="A statically typed, compiled language with a scripting-language feel — built at Google to make large teams and concurrent systems boring, in the best way. Read here through a Python/TypeScript lens, aimed at writing and reviewing a Pulumi construct.">
+  <meta property="og:url" content="https://jacob-petterle.github.io/explainers/go-explainer.html">
+  <meta property="og:image" content="https://jacob-petterle.github.io/explainers/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Go — Technical Explainer (for Python &amp; TypeScript developers)">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Go — Technical Explainer (for Python &amp; TypeScript developers)">
+  <meta name="twitter:description" content="A statically typed, compiled language with a scripting-language feel — built at Google to make large teams and concurrent systems boring, in the best way. Read here through a Python/TypeScript lens, aimed at writing and reviewing a Pulumi construct.">
+  <meta name="twitter:image" content="https://jacob-petterle.github.io/explainers/assets/og.png">
+  <!-- shipyard:meta -->
+</head>
+<body>
+<div class="sheet">
+
+  <!-- ================= HEADER ================= -->
+  <header>
+    <div class="doc-line">
+      <span>Programming Languages &middot; Technical Explainer</span>
+      <span class="std">Spec: go.dev/ref/spec</span>
+      <span>For Python &amp; TypeScript devs &middot; Rev. 2026.1 (Go 1.26)</span>
+    </div>
+    <div class="masthead">
+      <div>
+        <h1>GO<span class="amp">LANG</span></h1>
+        <p class="subtitle">A statically typed, compiled language with a scripting-language feel — built at Google to make large teams and concurrent systems <i>boring</i>, in the best way. Read here through a Python/TypeScript lens, aimed at writing and reviewing a Pulumi construct.</p>
+      </div>
+      <div class="spec-box" aria-label="Quick reference">
+        <div><span class="k">Appeared</span><b>2009 · Google</b></div>
+        <div><span class="k">Go 1.0 (compat)</span><b>2012</b></div>
+        <div><span class="k">Current</span><b>Go 1.26 — Feb 2026</b></div>
+        <div><span class="k">Typing</span><b>static · structural interfaces</b></div>
+        <div><span class="k">Memory</span><b>garbage-collected</b></div>
+        <div><span class="k">Concurrency</span><b>goroutines + channels</b></div>
+        <div><span class="k">Ships as</span><b>one static binary</b></div>
+        <div><span class="k">Toolchain</span><b>the <span class="mono">go</span> command</b></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= 1. WHAT ================= -->
+  <section id="what">
+    <div class="sec-head"><span class="sec-num">1</span><h2>What Go is</h2></div>
+    <div class="two-col">
+      <div class="def-card sw">
+        <div class="tag"><span>The language</span><span>SURFACE</span></div>
+        <div class="body">
+          <p class="one-liner">Python's ergonomics, C's contract.</p>
+          <p>Go reads almost like pseudocode: about <b>25 keywords</b>, no classes, no inheritance, no exceptions, no decorators, one <a class="gl" href="#g-gofmt">canonical formatter</a>. But unlike Python it is <b>statically typed</b> and <b>compiled ahead-of-time</b> to native machine code — types are checked and most bugs surface <i>before</i> the program runs.</p>
+          <p>The minimalism is a deliberate design choice: fewer features means any Go dev can read any Go codebase. <span class="vs">vs Python/TS</span> there's usually exactly one obvious way to do a thing.</p>
+        </div>
+      </div>
+      <div class="def-card hw">
+        <div class="tag"><span>The runtime</span><span>ENGINE</span></div>
+        <div class="body">
+          <p class="one-liner">A concurrency engine under every binary.</p>
+          <p>Every compiled Go program embeds a small <a class="gl" href="#g-runtime">runtime</a>: a <a class="gl" href="#g-scheduler">goroutine scheduler</a>, a <a class="gl" href="#g-gc">garbage collector</a>, and a memory allocator. So <span class="mono">go f()</span> spawns a near-free concurrent task, and memory is managed for you.</p>
+          <p>This is the thing Python's <a class="gl" href="#g-gil">GIL</a> and Node's single-threaded event loop can't do natively: <b>true parallelism across all your CPU cores</b>, expressed in ordinary-looking code.</p>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:24px" class="lead">The relationship in one sentence: <b>the language stays tiny on purpose so the runtime can quietly do the heavy lifting</b> — the code you review stays simple even when the system underneath is highly concurrent.</p>
+  </section>
+
+  <!-- ================= 2. THE JOB ================= -->
+  <section id="job">
+    <div class="sec-head"><span class="sec-num">2</span><h2>The job it solves: simplicity at scale</h2></div>
+    <p class="lead">Go came out of Google's frustration with the languages available for large-scale server software: slow builds, complex type systems, and concurrency that was either dangerous or bolted on. Each design choice answers a concrete pain a Python or TS developer will recognize:</p>
+    <div class="scenarios">
+      <div><span class="q">"My Python threads can't use my cores"</span><span class="a">The <a class="gl" href="#g-gil">GIL</a> serializes CPU-bound work. <a class="gl" href="#g-goroutine">Goroutines</a> run genuinely in parallel across cores.</span></div>
+      <div><span class="q">"node_modules is 400 MB"</span><span class="a">Go compiles to <b>one static binary</b>. Nothing to install on the server — copy the file and run it.</span></div>
+      <div><span class="q">"async colored all my functions"</span><span class="a">No <span class="mono">async/await</span> split. A goroutine just blocks; the scheduler runs others. All code looks synchronous.</span></div>
+      <div><span class="q">"the build takes 20 minutes"</span><span class="a">Go was designed for fast compiles; large codebases build in seconds, keeping the edit-run loop tight.</span></div>
+      <div><span class="q">"it type-checked... at runtime"</span><span class="a">Static types plus a culture that avoids <span class="mono">any</span> catch whole classes of bugs at compile time.</span></div>
+      <div><span class="q">"onboarding takes a month"</span><span class="a">Tiny language + <a class="gl" href="#g-gofmt">gofmt</a> + one idiom set = a new hire can read the codebase on day one.</span></div>
+    </div>
+    <div class="callout"><b>The core promise:</b> Go optimizes for <i>reading and maintaining</i> code at scale, not for writing it cleverly. It deliberately omits features (inheritance, exceptions, operator overloading, macros) so that unfamiliar code stays legible — which is exactly why it dominates infrastructure tooling you already use.</div>
+    <h3>What the language actually gives you</h3>
+    <ul class="pins">
+      <li><span class="pin">GOROUTINES</span><span class="mono">go f()</span> starts a <a class="gl" href="#g-goroutine">goroutine</a> with a ~2&nbsp;KB stack. Run hundreds of thousands.</li>
+      <li><span class="pin">CHANNELS</span>Typed pipes between goroutines: <a class="gl" href="#g-channel">"share memory by communicating."</a></li>
+      <li><span class="pin">INTERFACES</span><a class="gl" href="#g-interface">Interfaces</a> are satisfied <b>implicitly</b> — duck typing, checked at compile time.</li>
+      <li><span class="pin">ERRORS</span><a class="gl" href="#g-error">Errors are values</a> you return and handle, not exceptions you throw.</li>
+      <li><span class="pin">STATIC BIN</span><span class="mono">go build</span> → one file. Set <span class="mono">GOOS/GOARCH</span> to cross-compile for any OS.</li>
+      <li><span class="pin">STDLIB</span>Production-grade HTTP, JSON, crypto and TLS live in the standard library.</li>
+      <li><span class="pin">TOOLING</span>Format, vet, test, <a class="gl" href="#g-race">race detector</a> and modules all inside one <span class="mono">go</span> command.</li>
+      <li><span class="pin">GENERICS</span><a class="gl" href="#g-generics">Type parameters</a> since Go 1.18 for reusable containers and helpers.</li>
+    </ul>
+  </section>
+
+  <!-- ================= 3. SIGNATURE DIAGRAM ================= -->
+  <section id="diagram">
+    <div class="sec-head"><span class="sec-num">3</span><h2>The signature trick — how goroutines run</h2></div>
+    <p>Here is the mental model that most separates Go from Python and JavaScript. You write <span class="mono">go f()</span> and create a <a class="gl" href="#g-goroutine">goroutine</a> — an application-level task, not an OS thread. Go's <a class="gl" href="#g-scheduler">scheduler</a> multiplexes huge numbers of goroutines (<b>G</b>) onto a small pool of OS threads (<b>M</b>) through logical processors (<b>P</b>, one per core by default). That's the <b>G–P–M</b> model.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 980 560" role="img" aria-label="Diagram of Go's G-P-M scheduler. On the left, your program spawns many cheap goroutines with the go keyword. In the middle, the Go runtime scheduler holds a run queue and a small set of logical processors P, one per CPU core by default. On the right, each P is backed by an OS thread M running on a real CPU core, giving true parallelism. A note explains that when a goroutine makes a blocking system call, its thread parks and the P picks up a fresh thread so other goroutines keep running.">
+        <!-- ===== Region A: goroutines ===== -->
+        <rect x="18" y="58" width="250" height="438" fill="#FBF4EC" stroke="#B0632F" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="32" y="82" font-family="IBM Plex Mono" font-size="11" fill="#B0632F" letter-spacing="1">YOUR PROGRAM — GOROUTINES (G)</text>
+        <g class="blk">
+          <rect x="40" y="98" width="206" height="38" fill="#FFFFFF" stroke="#B0632F" stroke-width="1.8"/>
+          <text x="54" y="122" font-family="IBM Plex Mono" font-size="12.5" fill="#17191B">go handleRequest()</text></g>
+        <g class="blk">
+          <rect x="40" y="144" width="206" height="38" fill="#FFFFFF" stroke="#B0632F" stroke-width="1.8"/>
+          <text x="54" y="168" font-family="IBM Plex Mono" font-size="12.5" fill="#17191B">go worker(job)</text></g>
+        <g class="blk">
+          <rect x="40" y="190" width="206" height="38" fill="#FFFFFF" stroke="#B0632F" stroke-width="1.8"/>
+          <text x="54" y="214" font-family="IBM Plex Mono" font-size="12.5" fill="#17191B">go createResource()</text></g>
+        <g class="blk">
+          <rect x="40" y="236" width="206" height="38" fill="#FFFFFF" stroke="#B0632F" stroke-width="1.8"/>
+          <text x="54" y="260" font-family="IBM Plex Mono" font-size="12.5" fill="#17191B">go pollStatus()</text></g>
+        <text x="54" y="300" font-family="IBM Plex Mono" font-size="12.5" fill="#63665C">… 100 000s more</text>
+        <text x="40" y="470" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">~2 KB stack each · grows on</text>
+        <text x="40" y="485" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">demand · cheap to create/destroy</text>
+
+        <!-- ===== Region B: scheduler ===== -->
+        <rect x="300" y="58" width="342" height="438" fill="#E9F0F6" stroke="#1E4E79" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="314" y="82" font-family="IBM Plex Mono" font-size="11" fill="#1E4E79" letter-spacing="1">GO RUNTIME — SCHEDULER</text>
+        <g class="blk">
+          <rect x="314" y="98" width="314" height="46" fill="#FFFFFF" stroke="#1E4E79" stroke-width="1.8"/>
+          <text x="471" y="120" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="700" fill="#1E4E79">GLOBAL RUN QUEUE</text>
+          <text x="471" y="136" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">ready goroutines waiting for a P</text></g>
+
+        <g class="blk">
+          <rect x="320" y="190" width="96" height="118" fill="#FFFFFF" stroke="#1E4E79" stroke-width="2.2"/>
+          <text x="368" y="216" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="20" font-weight="700" fill="#1E4E79">P0</text>
+          <text x="368" y="234" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">logical proc</text>
+          <rect x="332" y="248" width="72" height="26" fill="#F4E4D3"/>
+          <text x="368" y="266" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#B0632F">G running</text>
+          <text x="368" y="294" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#9A9C92">local queue</text></g>
+        <g class="blk">
+          <rect x="424" y="190" width="96" height="118" fill="#FFFFFF" stroke="#1E4E79" stroke-width="2.2"/>
+          <text x="472" y="216" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="20" font-weight="700" fill="#1E4E79">P1</text>
+          <text x="472" y="234" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">logical proc</text>
+          <rect x="436" y="248" width="72" height="26" fill="#F4E4D3"/>
+          <text x="472" y="266" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#B0632F">G running</text>
+          <text x="472" y="294" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#9A9C92">local queue</text></g>
+        <g class="blk">
+          <rect x="528" y="190" width="96" height="118" fill="#FFFFFF" stroke="#1E4E79" stroke-width="2.2"/>
+          <text x="576" y="216" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="20" font-weight="700" fill="#1E4E79">P2</text>
+          <text x="576" y="234" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">logical proc</text>
+          <rect x="540" y="248" width="72" height="26" fill="#F4E4D3"/>
+          <text x="576" y="266" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#B0632F">G running</text>
+          <text x="576" y="294" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#9A9C92">local queue</text></g>
+        <text x="314" y="470" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">P count = GOMAXPROCS</text>
+        <text x="314" y="485" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">(defaults to your CPU core count)</text>
+
+        <!-- ===== Region C: threads/cores ===== -->
+        <rect x="674" y="58" width="288" height="438" fill="#E3EEE7" stroke="#0E5138" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="688" y="82" font-family="IBM Plex Mono" font-size="11" fill="#0E5138" letter-spacing="1">OS THREADS (M) → CPU CORES</text>
+        <g class="blk">
+          <rect x="688" y="190" width="120" height="42" fill="#FFFFFF" stroke="#0E5138" stroke-width="1.8"/>
+          <text x="748" y="210" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700" fill="#0E5138">M0</text>
+          <text x="748" y="225" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#63665C">OS thread</text></g>
+        <g class="blk">
+          <rect x="688" y="238" width="120" height="42" fill="#FFFFFF" stroke="#0E5138" stroke-width="1.8"/>
+          <text x="748" y="258" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700" fill="#0E5138">M1</text>
+          <text x="748" y="273" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#63665C">OS thread</text></g>
+        <g class="blk">
+          <rect x="688" y="286" width="120" height="42" fill="#FFFFFF" stroke="#0E5138" stroke-width="1.8"/>
+          <text x="748" y="306" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700" fill="#0E5138">M2</text>
+          <text x="748" y="321" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#63665C">OS thread</text></g>
+        <g class="blk">
+          <rect x="828" y="190" width="118" height="138" fill="#D7E7DD" stroke="#0E5138" stroke-width="2"/>
+          <text x="887" y="246" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700" fill="#0E5138">CPU</text>
+          <text x="887" y="266" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700" fill="#0E5138">CORES</text>
+          <text x="887" y="290" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">true parallelism</text></g>
+
+        <!-- flows: G -> run queue (copper) -->
+        <g stroke="#B0632F" stroke-width="2" fill="none">
+          <path d="M246 117 L300 121"/>
+          <path d="M246 163 L300 128"/>
+          <path d="M246 209 L300 132"/>
+        </g>
+        <!-- run queue -> Ps (blue) -->
+        <g stroke="#1E4E79" stroke-width="2" fill="none">
+          <path d="M420 144 L368 190"/>
+          <path d="M471 144 L472 190"/>
+          <path d="M522 144 L576 190"/>
+        </g>
+        <!-- Ps -> Ms (green) -->
+        <g stroke="#0E5138" stroke-width="2.4" fill="none">
+          <path d="M416 232 L688 211"/>
+          <path d="M472 308 L688 259"/>
+          <path d="M624 258 L688 300"/>
+        </g>
+        <!-- Ms -> cores -->
+        <g stroke="#0E5138" stroke-width="2" fill="none">
+          <path d="M808 211 L828 230"/>
+          <path d="M808 259 L828 259"/>
+          <path d="M808 307 L828 288"/>
+        </g>
+
+        <!-- syscall handoff note -->
+        <rect x="314" y="336" width="314" height="118" fill="#FBF4EC" stroke="#B0632F" stroke-width="1.4"/>
+        <text x="326" y="358" font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#B0632F">BLOCKING SYSCALL? NO PROBLEM.</text>
+        <text x="326" y="378" font-family="IBM Plex Sans" font-size="11.5" fill="#2E312B">A goroutine that blocks (disk, network, an API</text>
+        <text x="326" y="394" font-family="IBM Plex Sans" font-size="11.5" fill="#2E312B">call) parks its M. The P detaches, grabs a</text>
+        <text x="326" y="410" font-family="IBM Plex Sans" font-size="11.5" fill="#2E312B">fresh M, and keeps the other goroutines</text>
+        <text x="326" y="426" font-family="IBM Plex Sans" font-size="11.5" fill="#2E312B">running — so one slow call never stalls the</text>
+        <text x="326" y="442" font-family="IBM Plex Sans" font-size="11.5" fill="#2E312B">whole program. You write plain, blocking code.</text>
+
+        <text x="32" y="524" font-family="IBM Plex Mono" font-size="10.5" fill="#63665C">PYTHON: one GIL — one thread runs Python at a time.   NODE: one thread, one event loop.   GO: N goroutines fanned across every core, automatically.</text>
+      </svg>
+      <div class="legend">
+        <span><span class="swatch" style="background:#FBF4EC"></span>goroutines (G) — app-level, cheap</span>
+        <span><span class="swatch" style="background:#E9F0F6"></span>scheduler + logical procs (P)</span>
+        <span><span class="swatch" style="background:#E3EEE7"></span>OS threads (M) → real cores</span>
+      </div>
+      <div class="fig-cap">FIG. 3-1 — The G–P–M scheduler. You create goroutines freely; the runtime maps them onto a core-sized pool of OS threads and reschedules around blocking calls. This is why concurrency in Go feels free and why <span class="mono">go f()</span> costs almost nothing.</div>
+    </div>
+    <div class="callout blue" style="margin-top:18px"><b>Why a Pulumi author should care:</b> you rarely touch the scheduler directly, but this model is why Pulumi's engine can resolve a whole dependency graph of resources concurrently, and why an <a class="gl" href="#g-output">Output</a>'s <a class="gl" href="#g-apply"><span class="mono">Apply</span></a> callback can run later without you managing threads or promises.</div>
+  </section>
+
+  <!-- ================= 4. MECHANICS / CODE ================= -->
+  <section id="code">
+    <div class="sec-head"><span class="sec-num">4</span><h2>Hands-on mechanics — the language in five moves</h2></div>
+    <p class="lead">Everything below is real, idiomatic Go, tilted toward what you'll write in a Pulumi component. The left panel is the anatomy of a single <span class="mono">.go</span> file; the tabs on the right are the five features that matter most coming from Python/TS.</p>
+    <div class="api-grid">
+      <div>
+        <div class="tree"><span class="r">package</span> s3site          <span class="cm"># folder == package</span>
+
+<span class="r">import</span> (
+  <span class="s">"fmt"</span>                  <span class="cm"># stdlib, no install</span>
+  <span class="s">"github.com/pulumi/…"</span>  <span class="cm"># import path ==</span>
+)                        <span class="cm">#   module path</span>
+
+<span class="r">const</span> Region = <span class="s">"us-east-1"</span>
+
+<span class="r">type</span> <span class="c">Args</span> <span class="r">struct</span> {       <span class="cm"># a type, not a class</span>
+  Bucket <span class="c">string</span>         <span class="cm"># Capital = exported</span>
+  tags   <span class="r">map</span>[<span class="c">string</span>]<span class="c">string</span> <span class="cm"># lower = private</span>
+}
+
+<span class="r">func</span> <span class="c">New</span>(               <span class="cm"># returns (value, error)</span>
+  ctx *<span class="c">Context</span>,
+  args *<span class="c">Args</span>,
+) (*<span class="c">Site</span>, <span class="c">error</span>) { … }
+
+<span class="cm"># method: the (s *Site) is</span>
+<span class="cm"># the "receiver" — no class needed</span>
+<span class="r">func</span> (s *<span class="c">Site</span>) <span class="c">URL</span>() <span class="c">string</span> {
+  <span class="r">return</span> s.url
+}</div>
+        <div class="fig-cap" style="border-top:0">FIG. 4-1 — One file, one package. <b>Capitalization is the access modifier</b>: <span class="mono">Name</span> is exported (public), <span class="mono">name</span> is package-private. The import path <i>is</i> the URL.</div>
+      </div>
+      <div>
+        <div class="tabs" role="tablist" aria-label="Go language examples">
+          <button role="tab" aria-selected="true" data-tab="t1">STRUCTS</button>
+          <button role="tab" aria-selected="false" data-tab="t2">INTERFACES</button>
+          <button role="tab" aria-selected="false" data-tab="t3">ERRORS</button>
+          <button role="tab" aria-selected="false" data-tab="t4">GOROUTINES</button>
+          <button role="tab" aria-selected="false" data-tab="t5">GENERICS</button>
+        </div>
+        <div class="tabpanel">
+          <div id="t1" role="tabpanel">
+<pre><span class="cm2">// No classes. A struct is data; methods attach via a receiver.</span>
+<span class="verb">type</span> Bucket <span class="verb">struct</span> {
+    pulumi.ResourceState   <span class="cm2">// embedding ≈ "is-a" (composition)</span>
+    Name <span class="key">string</span>
+    url  <span class="key">string</span>            <span class="cm2">// lowercase = unexported</span>
+}
+
+<span class="cm2">// Value receiver: gets a COPY (fine for small, read-only).</span>
+<span class="verb">func</span> (b Bucket) Label() <span class="key">string</span> { <span class="verb">return</span> b.Name }
+
+<span class="cm2">// Pointer receiver: can mutate, avoids copying. Pulumi uses these.</span>
+<span class="verb">func</span> (b *Bucket) setURL(u <span class="key">string</span>) { b.url = u }</pre>
+            <div class="note">Methods are just functions with a <b>receiver</b> in parentheses before the name. <a class="gl" href="#g-embedding">Embedding</a> <span class="mono">pulumi.ResourceState</span> is Go's answer to inheritance — <b>composition, not subclassing</b>. <span class="vs">vs Python</span> the receiver is explicit and typed; there's no <span class="mono">self</span> magic.</div>
+          </div>
+          <div id="t2" role="tabpanel" hidden>
+<pre><span class="cm2">// An interface is just a set of method signatures.</span>
+<span class="verb">type</span> Stringer <span class="verb">interface</span> {
+    String() <span class="key">string</span>
+}
+
+<span class="cm2">// Bucket satisfies Stringer AUTOMATICALLY — no "implements".</span>
+<span class="verb">func</span> (b *Bucket) String() <span class="key">string</span> { <span class="verb">return</span> <span class="str">"bucket:"</span> + b.Name }
+
+<span class="cm2">// The stdlib works this way too:</span>
+<span class="verb">var</span> w io.Writer = os.Stdout   <span class="cm2">// *os.File has Write([]byte)</span>
+
+<span class="cm2">// Pulumi: StringInput is an interface. A plain string,</span>
+<span class="cm2">// pulumi.String("x"), and a StringOutput ALL satisfy it.</span>
+<span class="verb">func</span> New(name pulumi.StringInput) { <span class="cm2">/* … */</span> }</pre>
+            <div class="note">Like <span class="vs">TypeScript</span> structural typing — but checked at compile time with <b>zero declaration</b>. If a type has the methods, it fits. This is why one Pulumi argument can accept a literal, a config value, <i>or</i> another resource's output.</div>
+          </div>
+          <div id="t3" role="tabpanel" hidden>
+<pre><span class="cm2">// No exceptions. Functions return an error as the LAST value.</span>
+b, err := NewBucket(ctx, <span class="str">"web"</span>)
+<span class="verb">if</span> err != <span class="key">nil</span> {
+    <span class="verb">return</span> <span class="key">nil</span>, fmt.Errorf(<span class="str">"creating bucket: %w"</span>, err) <span class="cm2">// wrap</span>
+}
+
+<span class="cm2">// The heartbeat of every Pulumi component:</span>
+obj, err := s3.NewBucketObject(ctx, <span class="str">"index"</span>, &s3.BucketObjectArgs{
+    Bucket: b.ID(),
+})
+<span class="verb">if</span> err != <span class="key">nil</span> {
+    <span class="verb">return</span> <span class="key">nil</span>, err
+}</pre>
+            <div class="note"><span class="mono">if err != nil</span> is Go's love-it-or-hate-it heartbeat. Errors are ordinary values you inspect and pass up — no <span class="mono">try/except</span>, no hidden unwinding — though cleanup still runs deterministically via <a class="gl" href="#g-defer">defer</a>. <span class="mono">errors.Is</span> / <span class="mono">errors.As</span> walk the <span class="mono">%w</span> chain. <span class="vs">vs Python/TS</span> control flow is always visible in review.</div>
+          </div>
+          <div id="t4" role="tabpanel" hidden>
+<pre><span class="cm2">// `go` starts a goroutine. Channels carry typed values.</span>
+results := <span class="verb">make</span>(<span class="verb">chan</span> <span class="key">string</span>)
+
+<span class="verb">for</span> _, id := <span class="verb">range</span> ids {
+    <span class="verb">go</span> <span class="verb">func</span>() {
+        results &lt;- fetch(id)     <span class="cm2">// send  (id is per-iteration in 1.22+)</span>
+    }()
+}
+<span class="verb">for</span> <span class="verb">range</span> ids {
+    fmt.Println(&lt;-results)       <span class="cm2">// receive (blocks until ready)</span>
+}
+
+<span class="cm2">// select waits on multiple channels; context cancels cleanly.</span>
+<span class="verb">select</span> {
+<span class="verb">case</span> r := &lt;-results: use(r)
+<span class="verb">case</span> &lt;-ctx.Done():  <span class="verb">return</span> ctx.Err()   <span class="cm2">// timeout / cancel</span>
+}</pre>
+            <div class="note">A goroutine looks synchronous but yields at blocking points. No <span class="mono">async/await</span> coloring <span class="vs">vs JS</span>, no GIL bottleneck <span class="vs">vs Python</span>. <span class="mono">sync.WaitGroup</span> waits for a batch; <a class="gl" href="#g-context"><span class="mono">context.Context</span></a> propagates cancellation.</div>
+          </div>
+          <div id="t5" role="tabpanel" hidden>
+<pre><span class="cm2">// Type parameters since Go 1.18. [T any] = works for any type.</span>
+<span class="verb">func</span> Map[T, U <span class="key">any</span>](xs []T, f <span class="verb">func</span>(T) U) []U {
+    out := <span class="verb">make</span>([]U, <span class="verb">len</span>(xs))
+    <span class="verb">for</span> i, x := <span class="verb">range</span> xs {
+        out[i] = f(x)
+    }
+    <span class="verb">return</span> out
+}
+
+names := Map(buckets, <span class="verb">func</span>(b *Bucket) <span class="key">string</span> { <span class="verb">return</span> b.Name })
+
+<span class="cm2">// Constraints restrict T. `comparable` allows == :</span>
+<span class="verb">func</span> Keys[K <span class="key">comparable</span>, V <span class="key">any</span>](m <span class="verb">map</span>[K]V) []K { <span class="cm2">/* … */</span> }</pre>
+            <div class="note">Before 1.18 you reached for <span class="mono">interface{}</span> (now spelled <span class="mono">any</span>) and lost type safety. Generics bring compile-checked reuse — the same reason Pulumi's newer generic <span class="mono">pulumix</span> helpers exist beside the older, cast-heavy <span class="mono">pulumi.All</span>. Use them for containers/helpers; don't over-abstract.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 5. ALTERNATIVES ================= -->
+  <section id="alts">
+    <div class="sec-head"><span class="sec-num">5</span><h2>Go vs the languages you already know</h2></div>
+    <p>Go does not win every row — and pretending otherwise makes for worse reviews. Here's an honest read against Python, TypeScript/Node, and Rust, the languages most likely to be in the room when someone picks Go.</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Dimension</th><th>Go</th><th>Python</th><th>TypeScript / Node</th><th>Rust</th></tr></thead>
+      <tbody>
+        <tr><td>Typing</td><td class="win">Static, compiled, minimal</td><td>Dynamic (+ optional hints)</td><td>Static, very expressive</td><td>Static, richest of all</td></tr>
+        <tr><td>Concurrency</td><td class="win">Goroutines + channels; true parallel</td><td>GIL limits CPU threads</td><td>Single-thread event loop; async/await</td><td>Threads + async; fearless, but complex</td></tr>
+        <tr><td>Raw performance</td><td>Fast (near C for most work)</td><td>Slow without C extensions</td><td>Moderate (JIT)</td><td class="win">Fastest; no GC pauses</td></tr>
+        <tr><td>Deploy artifact</td><td class="win">One static binary</td><td>Interpreter + venv/deps</td><td>Node runtime + node_modules</td><td class="win">One static binary</td></tr>
+        <tr><td>Learning curve</td><td class="win">Small; days to read</td><td>Small</td><td>Moderate (types + JS quirks)</td><td>Steep (borrow checker)</td></tr>
+        <tr><td>Memory model</td><td>Garbage-collected</td><td>Garbage-collected</td><td>Garbage-collected</td><td class="win">Ownership; no GC</td></tr>
+        <tr><td>Error handling</td><td>Explicit <span class="mono">(val, error)</span></td><td>Exceptions</td><td>Exceptions</td><td>Explicit <span class="mono">Result&lt;T,E&gt;</span> + <span class="mono">?</span></td></tr>
+        <tr><td>Sweet spot</td><td class="win">Networked services, CLIs, infra/IaC</td><td class="win">Data, ML, scripting, glue</td><td class="win">Web front + full-stack</td><td class="win">Systems, embedded, max-perf</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="picks">
+      <div class="go"><span class="l">PICK GO WHEN</span><p>You're building network services, CLIs, or infrastructure tooling (like a Pulumi provider), want easy concurrency, and value fast builds + trivial deploys over language expressiveness.</p></div>
+      <div class="py"><span class="l">PICK PYTHON WHEN</span><p>Data science, ML, notebooks, or quick automation — the library ecosystem and REPL win, and raw throughput isn't the constraint.</p></div>
+      <div class="ts"><span class="l">PICK TYPESCRIPT WHEN</span><p>Anything touching the browser, or a full-stack app where sharing types across client and server pays off more than a tiny deploy.</p></div>
+      <div class="rs"><span class="l">PICK RUST WHEN</span><p>You need maximum performance, no garbage-collector pauses, or memory-safety guarantees at the systems level — and can pay the learning tax.</p></div>
+    </div>
+    <div class="callout blue" style="margin-top:22px"><b>Pulumi angle:</b> Pulumi supports Python, TypeScript, Go, .NET, Java and YAML — the model is identical across them. People choose <b>Go</b> for Pulumi when they want a single static binary provider, strong typing on resource args, and alignment with the Go-heavy cloud-native ecosystem (Kubernetes, Terraform providers, controllers).</div>
+  </section>
+
+  <!-- ================= 6. APPLICATIONS ================= -->
+  <section id="apps">
+    <div class="sec-head"><span class="sec-num">6</span><h2>Where Go shows up</h2></div>
+    <p>Notice how much of your daily infrastructure is written in Go — that's not an accident. The "simple, concurrent, one-binary" combination is ideal for long-running networked programs.</p>
+    <div class="apps">
+      <div class="app" data-ref="APP-01">
+        <h3>Cloud infra &amp; IaC</h3>
+        <p>The tools that run modern infrastructure are overwhelmingly Go — which is exactly why writing a Pulumi construct in Go keeps you in the native ecosystem.</p>
+        <p class="tools"><a class="x" href="https://www.pulumi.com/docs/iac/languages-sdks/go/" target="_blank" rel="noopener">Pulumi</a> · <a class="x" href="https://kubernetes.io" target="_blank" rel="noopener">Kubernetes</a> · <a class="x" href="https://www.docker.com" target="_blank" rel="noopener">Docker</a> · <a class="x" href="https://developer.hashicorp.com/terraform" target="_blank" rel="noopener">Terraform</a></p>
+      </div>
+      <div class="app" data-ref="APP-02">
+        <h3>Backend services &amp; APIs</h3>
+        <p>HTTP and gRPC services, microservices, and high-throughput daemons. The standard library's <span class="mono">net/http</span> is production-ready on its own.</p>
+        <p class="tools"><a class="x" href="https://github.com/gin-gonic/gin" target="_blank" rel="noopener">gin</a> · <a class="x" href="https://github.com/go-chi/chi" target="_blank" rel="noopener">chi</a> · <a class="x" href="https://connectrpc.com" target="_blank" rel="noopener">connect / gRPC</a></p>
+      </div>
+      <div class="app" data-ref="APP-03">
+        <h3>CLIs &amp; developer tools</h3>
+        <p>A single cross-compiled binary with no runtime dependency is the perfect CLI. Most of the DevOps CLIs you type are Go.</p>
+        <p class="tools"><a class="x" href="https://github.com/spf13/cobra" target="_blank" rel="noopener">cobra</a> · <a class="x" href="https://github.com/spf13/viper" target="_blank" rel="noopener">viper</a> · <a class="x" href="https://github.com/charmbracelet/bubbletea" target="_blank" rel="noopener">bubbletea</a></p>
+      </div>
+      <div class="app" data-ref="APP-04">
+        <h3>Networking &amp; proxies</h3>
+        <p>Reverse proxies, edge servers, and databases where connection concurrency is the whole game.</p>
+        <p class="tools"><a class="x" href="https://traefik.io" target="_blank" rel="noopener">Traefik</a> · <a class="x" href="https://caddyserver.com" target="_blank" rel="noopener">Caddy</a> · <a class="x" href="https://www.cockroachlabs.com" target="_blank" rel="noopener">CockroachDB</a> · <a class="x" href="https://nats.io" target="_blank" rel="noopener">NATS</a></p>
+      </div>
+      <div class="app" data-ref="APP-05">
+        <h3>Platform engineering</h3>
+        <p>Kubernetes operators/controllers, observability agents, CI/CD systems — long-lived control-plane code.</p>
+        <p class="tools"><a class="x" href="https://prometheus.io" target="_blank" rel="noopener">Prometheus</a> · <a class="x" href="https://argo-cd.readthedocs.io" target="_blank" rel="noopener">Argo CD</a> · <a class="x" href="https://github.com/kubernetes-sigs/controller-runtime" target="_blank" rel="noopener">controller-runtime</a></p>
+      </div>
+      <div class="app" data-ref="APP-06">
+        <h3>Distributed systems</h3>
+        <p>Coordination, queues, and workflow engines that must stay up and handle many connections at once.</p>
+        <p class="tools"><a class="x" href="https://etcd.io" target="_blank" rel="noopener">etcd</a> · <a class="x" href="https://temporal.io" target="_blank" rel="noopener">Temporal</a> · <a class="x" href="https://github.com/hashicorp/raft" target="_blank" rel="noopener">hashicorp/raft</a></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 7. ECOSYSTEM ================= -->
+  <section id="eco">
+    <div class="sec-head"><span class="sec-num">7</span><h2>The ecosystem — names you'll run into</h2></div>
+    <div class="eco">
+      <div class="eco-col">
+        <h3>The go toolchain</h3>
+        <ul>
+          <li><b><a class="x" href="https://pkg.go.dev/cmd/go" target="_blank" rel="noopener">go</a></b><span><span class="mono">build · run · test · mod · fmt · vet</span> — one command does it all</span></li>
+          <li><b><a class="x" href="https://pkg.go.dev/cmd/gofmt" target="_blank" rel="noopener">gofmt</a></b><span>the one true formatter; ends style debates</span></li>
+          <li><b><a class="x" href="https://golangci-lint.run" target="_blank" rel="noopener">golangci-lint</a></b><span>the de-facto meta-linter for CI</span></li>
+          <li><b><a class="x" href="https://github.com/go-delve/delve" target="_blank" rel="noopener">delve (dlv)</a></b><span>the Go debugger</span></li>
+        </ul>
+      </div>
+      <div class="eco-col">
+        <h3>Standard-library stars</h3>
+        <ul>
+          <li><b><a class="x" href="https://pkg.go.dev/net/http" target="_blank" rel="noopener">net/http</a></b><span>a real HTTP client + server, no framework needed</span></li>
+          <li><b><a class="x" href="https://pkg.go.dev/context" target="_blank" rel="noopener">context</a></b><span>cancellation + deadlines threaded through calls</span></li>
+          <li><b><a class="x" href="https://pkg.go.dev/encoding/json" target="_blank" rel="noopener">encoding/json</a></b><span>struct-tag driven (un)marshalling</span></li>
+          <li><b><a class="x" href="https://pkg.go.dev/log/slog" target="_blank" rel="noopener">log/slog</a></b><span>structured logging in the stdlib since 1.21</span></li>
+        </ul>
+      </div>
+      <div class="eco-col">
+        <h3>Popular libraries</h3>
+        <ul>
+          <li><b><a class="x" href="https://github.com/stretchr/testify" target="_blank" rel="noopener">testify</a></b><span>assertions + mocks on top of <span class="mono">go test</span></span></li>
+          <li><b><a class="x" href="https://github.com/uber-go/zap" target="_blank" rel="noopener">zap</a></b><span>fast structured logging</span></li>
+          <li><b><a class="x" href="https://gorm.io" target="_blank" rel="noopener">GORM</a> / <a class="x" href="https://sqlc.dev" target="_blank" rel="noopener">sqlc</a></b><span>ORM, and type-safe SQL codegen</span></li>
+          <li><b><a class="x" href="https://github.com/spf13/cobra" target="_blank" rel="noopener">cobra</a></b><span>the CLI framework behind kubectl &amp; friends</span></li>
+        </ul>
+      </div>
+      <div class="eco-col">
+        <h3>The Pulumi-Go world</h3>
+        <ul>
+          <li><b><a class="x" href="https://pkg.go.dev/github.com/pulumi/pulumi/sdk/v3/go/pulumi#Context" target="_blank" rel="noopener">pulumi.Context</a></b><span>the <span class="mono">ctx</span> you thread everywhere; registers resources</span></li>
+          <li><b><a class="x" href="https://www.pulumi.com/docs/iac/languages-sdks/go/go-inputs-outputs/" target="_blank" rel="noopener">Input / Output</a></b><span>maybe-not-yet-known values; <span class="mono">.ApplyT(...)</span> transforms them</span></li>
+          <li><b><a class="x" href="https://www.pulumi.com/docs/iac/concepts/resources/components/" target="_blank" rel="noopener">ComponentResource</a></b><span>your construct; embeds <span class="mono">pulumi.ResourceState</span></span></li>
+          <li><b><a class="x" href="https://www.pulumi.com/blog/go-generics-preview/" target="_blank" rel="noopener">pulumix</a></b><span>generic, type-safe Apply helpers (vs old <span class="mono">pulumi.All</span>)</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 8. GOTCHAS ================= -->
+  <section id="gotchas">
+    <div class="sec-head"><span class="sec-num">8</span><h2>Gotchas — what bites reviewers</h2></div>
+    <ul class="gotchas">
+      <li><b>Supply chain: verify your dependencies.</b> Go records exact module hashes in <span class="mono">go.sum</span> and checks them against the public checksum database, so tampering is caught. Run <a class="x" href="https://go.dev/security/vuln/" target="_blank" rel="noopener"><span class="mono">govulncheck ./...</span></a> in CI to scan dependencies for known vulnerabilities, and don't reflexively bump to the newest tag. Treat <a class="gl" href="#g-module"><span class="mono">go.mod</span></a>/<span class="mono">go.sum</span> changes as security-relevant in review.</li>
+      <li><b>The typed-nil trap — the #1 error bug.</b> An <a class="gl" href="#g-interface">interface</a> holding a nil pointer is <b>not</b> equal to <span class="mono">nil</span>. Returning a concrete <span class="mono">*MyError</span> that happens to be nil into an <span class="mono">error</span> return yields a non-nil error. Always <span class="mono">return nil</span> explicitly for the no-error case. This hits Pulumi's <span class="mono">(T, error)</span> returns constantly.</li>
+      <li><b>Zero values, not <span class="mono">null</span>.</b> Every type has a <a class="gl" href="#g-zero">zero value</a> — <span class="mono">0</span>, <span class="mono">""</span>, <span class="mono">false</span>, <span class="mono">nil</span>. There is no "undefined." This is exactly why optional struct fields (and Pulumi args) use <b>pointers</b> (<span class="mono">*string</span>): so "unset" is distinguishable from "empty string."</li>
+      <li><b>Errors are easy to swallow.</b> A stray <span class="mono">:=</span> in an inner scope can <b>shadow</b> an outer <span class="mono">err</span>, and <span class="mono">_ =</span> discards it entirely. Check every <span class="mono">if err != nil</span>; let <span class="mono">go vet</span> and linters catch the rest.</li>
+      <li><b>Slices and maps are references.</b> <span class="mono">append</span> may mutate a slice's shared backing array, aliasing data you passed elsewhere — <span class="mono">copy()</span> when you need isolation. And writing to a <span class="mono">nil</span> map <b>panics</b>; initialize with <span class="mono">make(map[...]...)</span> first.</li>
+      <li><b>Goroutines can leak.</b> A goroutine blocked forever on a channel is never garbage-collected. Always give it an exit: a <a class="gl" href="#g-context"><span class="mono">context.Context</span></a> to cancel, a closed channel, or a <span class="mono">WaitGroup</span> to join.</li>
+      <li><b>Data races are your job; the loop variable used to make them worse.</b> The compiler won't stop two goroutines touching the same memory — run <span class="mono">go test -race</span>. Historically, capturing a loop variable in a goroutine shared one variable across iterations; <a class="x" href="https://go.dev/blog/loopvar-preview" target="_blank" rel="noopener">Go 1.22 fixed this</a> (per-iteration scope) <i>if</i> your <span class="mono">go.mod</span> says <span class="mono">go 1.22</span> or newer. On older modules, the classic footgun remains.</li>
+      <li><b>You can learn all of this with zero setup.</b> The next section starts in the browser-based Go Playground — no install, no account. Reach for real hardware (your own machine) only in Lab B.</li>
+    </ul>
+  </section>
+
+  <!-- ================= 9. LABS ================= -->
+  <section id="labs">
+    <div class="sec-head"><span class="sec-num">9</span><h2>Run it yourself</h2></div>
+    <p class="lead">Reading Go gets you halfway; the feel for <span class="mono">if err != nil</span> and <span class="mono">go f()</span> comes from running it. The ladder below goes from a browser tab to your own Pulumi construct.</p>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB A — Concurrency in the browser</h3><span class="meta">~10 min · zero install</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li>
+            <p><b>Open the <a class="x" href="https://go.dev/play/" target="_blank" rel="noopener">Go Playground</a></b> — a full compiler in a web page. Paste this and click <b>Run</b>:</p>
+            <pre>package main
+
+import (
+    "fmt"
+    "sync"
+)
+
+func main() {
+    var wg sync.WaitGroup
+    for i := 0; i &lt; 5; i++ {
+        wg.Add(1)
+        go func() {            // per-iteration i (Go 1.22+)
+            defer wg.Done()
+            fmt.Println("goroutine", i)
+        }()
+    }
+    wg.Wait()
+    fmt.Println("all done")
+}</pre>
+            <p class="expect">EXPECT: five "goroutine N" lines in a scrambled order, then "all done". The scramble IS the concurrency from FIG. 3-1.</p>
+          </li>
+          <li>
+            <p><b>Break it on purpose.</b> Delete <span class="mono">wg.Wait()</span> and re-run. Now <span class="mono">main</span> often exits before the goroutines print — the classic "program ended before the work finished" bug.</p>
+            <p class="expect">EXPECT: fewer lines (or none) before exit. That's why you always join goroutines.</p>
+          </li>
+          <li>
+            <p><b>Feel gofmt.</b> Mangle the indentation, then click <b>Format</b>. It snaps back to the one canonical style — the debate-ender from Section 7.</p>
+            <p class="expect">EXPECT: identical formatting no matter how you typed it. Share via the <b>Share</b> button to get a permalink.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB B — Local Go: interfaces, errors, a static binary</h3><span class="meta">~30 min · needs Go 1.26</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li>
+            <p><b>Install Go and start a module.</b> Grab it from <a class="x" href="https://go.dev/dl/" target="_blank" rel="noopener">go.dev/dl</a>, then:</p>
+            <pre>go version                       # expect go1.26.x
+mkdir shapes &amp;&amp; cd shapes
+go mod init example.com/shapes   # creates go.mod</pre>
+            <p class="expect">EXPECT: a <span class="mono">go.mod</span> file whose first lines name the module and <span class="mono">go 1.26</span>.</p>
+          </li>
+          <li>
+            <p><b>Write an interface, a struct, and an error return</b> in <span class="mono">main.go</span> — the three moves from Section 4 in one tiny program:</p>
+            <pre>package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+type Shape interface{ Area() float64 }   // implicit satisfaction
+
+type Rect struct{ W, H float64 }
+func (r Rect) Area() float64 { return r.W * r.H }
+
+func describe(s Shape) (string, error) {
+    if s.Area() &lt;= 0 {
+        return "", errors.New("area must be positive")
+    }
+    return fmt.Sprintf("area = %.1f", s.Area()), nil
+}
+
+func main() {
+    out, err := describe(Rect{W: 3, H: 4})
+    if err != nil { panic(err) }
+    fmt.Println(out)
+}</pre>
+            <p class="expect">EXPECT: <span class="mono">go run .</span> prints <span class="mono">area = 12.0</span>. Rect satisfies Shape with no "implements" anywhere.</p>
+          </li>
+          <li>
+            <p><b>Build one binary, then vet and race-test it.</b> This is the whole deploy story and the whole safety net:</p>
+            <pre>go build -o shapes .   # → a single ./shapes binary, no deps
+go vet ./...           # static checks
+go test -race ./...    # data-race detector (no tests yet = passes)</pre>
+            <p class="expect">EXPECT: an executable you can <span class="mono">scp</span> to a Linux box and run as-is. Cross-compile with <span class="mono">GOOS=linux GOARCH=amd64 go build</span>.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB C — Your Pulumi construct</h3><span class="meta">optional · needs the Pulumi CLI</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li><p><b>Scaffold a Go program.</b> Install the <a class="x" href="https://www.pulumi.com/docs/install/" target="_blank" rel="noopener">Pulumi CLI</a>, then <span class="mono">pulumi new go</span> (a local/file backend is fine for practice — no cloud login required).</p></li>
+          <li>
+            <p><b>Write a ComponentResource</b> — the exact pattern you'll review. Note every move from this sheet: struct embedding, the <span class="mono">(*T, error)</span> factory, <span class="mono">if err != nil</span>, and <span class="mono">opts...</span> variadic options.</p>
+            <pre>type MyBucket struct {
+    pulumi.ResourceState              // embedding
+    BucketName pulumi.StringOutput    // an Output: known later
+}
+
+func NewMyBucket(
+    ctx *pulumi.Context, name string,
+    args *MyBucketArgs, opts ...pulumi.ResourceOption,
+) (*MyBucket, error) {
+    comp := &amp;MyBucket{}
+    err := ctx.RegisterComponentResource(
+        "myorg:index:MyBucket", name, comp, opts...)
+    if err != nil { return nil, err }
+    // ...create child resources with pulumi.Parent(comp)...
+    return comp, ctx.RegisterResourceOutputs(comp, pulumi.Map{})
+}</pre>
+            <p class="expect">EXPECT: <span class="mono">go build</span> is clean; the factory returns <span class="mono">(*MyBucket, error)</span>.</p>
+          </li>
+          <li><p><b>Preview it.</b> Instantiate <span class="mono">NewMyBucket</span> in your stack and run <span class="mono">pulumi preview</span>. Watch your component appear as a parent node with children nested beneath it — the <a class="gl" href="#g-output">Output</a> graph resolving concurrently, powered by the scheduler from FIG. 3-1.</p></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 10. GLOSSARY + READING ================= -->
+  <section id="glossary">
+    <div class="sec-head"><span class="sec-num">10</span><h2>Glossary — the jargon, decoded</h2></div>
+    <div class="glossary">
+      <dl>
+        <div class="entry" id="g-goroutine"><dt>goroutine</dt><dd>A function running concurrently, started with <span class="mono">go f()</span>. Managed by Go's runtime, not the OS — starts at ~2&nbsp;KB, so you can have hundreds of thousands. The lightweight cousin of a thread. <a class="x" href="https://go.dev/tour/concurrency/1" target="_blank" rel="noopener">tour</a></dd></div>
+        <div class="entry" id="g-channel"><dt>channel</dt><dd>A typed conduit to send/receive values between goroutines with <span class="mono">&lt;-</span>. Go's motto: "don't communicate by sharing memory; share memory by communicating."</dd></div>
+        <div class="entry" id="g-interface"><dt>interface</dt><dd>A set of method signatures. A type satisfies it automatically just by having those methods — no <span class="mono">implements</span> keyword. Structural typing, checked at compile time. <a class="x" href="https://go.dev/tour/methods/9" target="_blank" rel="noopener">tour</a></dd></div>
+        <div class="entry" id="g-embedding"><dt>struct embedding</dt><dd>Putting one type inside another without a field name, so its fields/methods are promoted. Go's composition-based alternative to inheritance — how a Pulumi component gains <span class="mono">ResourceState</span>.</dd></div>
+        <div class="entry" id="g-error"><dt>error</dt><dd>A built-in interface with one method, <span class="mono">Error() string</span>. Returned as the last value; you check <span class="mono">if err != nil</span>. <span class="mono">fmt.Errorf("...: %w", err)</span> wraps; <span class="mono">errors.Is/As</span> unwrap.</dd></div>
+        <div class="entry" id="g-zero"><dt>zero value</dt><dd>The default every variable gets with no initializer: <span class="mono">0</span>, <span class="mono">""</span>, <span class="mono">false</span>, <span class="mono">nil</span>. Removes "undefined"; motivates pointers for genuinely optional fields.</dd></div>
+        <div class="entry" id="g-context"><dt>context.Context</dt><dd>A value carrying cancellation, deadlines, and request-scoped data down a call tree. The idiomatic way to stop goroutines and time out I/O. <a class="x" href="https://pkg.go.dev/context" target="_blank" rel="noopener">docs</a></dd></div>
+        <div class="entry" id="g-defer"><dt>defer</dt><dd>Schedules a call to run when the surrounding function returns — used for cleanup (<span class="mono">defer f.Close()</span>). Runs last-in-first-out, even on panic.</dd></div>
+        <div class="entry" id="g-generics"><dt>generics / type parameters</dt><dd>Writing functions and types over a type variable, e.g. <span class="mono">[T any]</span>, added in Go 1.18 (2022). Constraints like <span class="mono">comparable</span> limit what T can be. <a class="x" href="https://go.dev/blog/intro-generics" target="_blank" rel="noopener">intro</a></dd></div>
+      </dl>
+      <dl>
+        <div class="entry" id="g-scheduler"><dt>scheduler (G–P–M)</dt><dd>The runtime component mapping goroutines (G) onto OS threads (M) via logical processors (P). Reschedules around blocking calls so a few threads serve many goroutines. See FIG. 3-1.</dd></div>
+        <div class="entry" id="g-runtime"><dt>runtime</dt><dd>The small support library compiled into every Go binary: scheduler, garbage collector, allocator, stack management. Not a separate VM — it's linked in.</dd></div>
+        <div class="entry" id="g-gc"><dt>garbage collector</dt><dd>Automatic memory reclamation, so you don't <span class="mono">free()</span>. Go's GC is low-latency and concurrent; Go 1.26 ships the "Green Tea" GC on by default. <a class="x" href="https://go.dev/doc/go1.26" target="_blank" rel="noopener">1.26 notes</a></dd></div>
+        <div class="entry" id="g-gil"><dt>GIL (Python)</dt><dd>Python's Global Interpreter Lock — only one thread executes Python bytecode at a time, capping CPU-bound threading. Go has no equivalent, which is the crux of the concurrency contrast.</dd></div>
+        <div class="entry" id="g-gofmt"><dt>gofmt</dt><dd>The canonical formatter shipped with Go. There is one official style, applied by <span class="mono">go fmt</span>, so formatting is never a code-review topic. <a class="x" href="https://pkg.go.dev/cmd/gofmt" target="_blank" rel="noopener">docs</a></dd></div>
+        <div class="entry" id="g-race"><dt>race detector</dt><dd>A tool built into the toolchain (<span class="mono">go test -race</span>, <span class="mono">go run -race</span>) that flags concurrent unsynchronized memory access at runtime. Essential when using goroutines.</dd></div>
+        <div class="entry" id="g-module"><dt>module / go.mod</dt><dd>A versioned collection of packages. <span class="mono">go.mod</span> declares the module path, Go version, and dependencies; <span class="mono">go.sum</span> pins verified checksums. The import path <i>is</i> the module path (often a repo URL).</dd></div>
+        <div class="entry" id="g-output"><dt>Output / Input (Pulumi)</dt><dd>A Pulumi <span class="mono">Output</span> is a value that may not be known until resources are created (like an ARN). <span class="mono">Input</span> is the interface a resource arg accepts — a literal, a config value, or another Output all qualify. <a class="x" href="https://www.pulumi.com/docs/iac/languages-sdks/go/go-inputs-outputs/" target="_blank" rel="noopener">docs</a></dd></div>
+        <div class="entry" id="g-apply"><dt>Apply / ApplyT (Pulumi)</dt><dd>How you transform an Output once its value is known: <span class="mono">out.ApplyT(func(v) ... )</span> returns a new Output. In Go it returns <span class="mono">pulumi.Output</span>, so you type-assert (e.g. <span class="mono">.(pulumi.StringOutput)</span>) or use generic <span class="mono">pulumix</span> helpers.</dd></div>
+      </dl>
+    </div>
+
+    <h3 style="margin-top:36px;border-top:1.5px solid var(--ink);padding-top:18px">Further reading — where to go deeper</h3>
+    <ul class="reading">
+      <li><a class="x" href="https://go.dev/tour/" target="_blank" rel="noopener">A Tour of Go</a><span class="why">Interactive, runnable, ~1 hour. The single best first stop; covers goroutines and interfaces hands-on.</span></li>
+      <li><a class="x" href="https://go.dev/doc/effective_go" target="_blank" rel="noopener">Effective Go</a><span class="why">How Go <i>wants</i> to be written. Read this before reviewing others' Go — it's the shared idiom set.</span></li>
+      <li><a class="x" href="https://gobyexample.com" target="_blank" rel="noopener">Go by Example</a><span class="why">Copy-pasteable, annotated snippets for every feature. The fastest "how do I do X in Go" lookup.</span></li>
+      <li><a class="x" href="https://go.dev/ref/spec" target="_blank" rel="noopener">The Go Programming Language Specification</a><span class="why">Small enough to actually read — the precise contract behind the language's behavior.</span></li>
+      <li><a class="x" href="https://100go.co" target="_blank" rel="noopener">100 Go Mistakes and How to Avoid Them</a><span class="why">Section 8, expanded to book length. Gold for sharpening code review — especially the concurrency and interface chapters.</span></li>
+      <li><a class="x" href="https://www.pulumi.com/docs/iac/languages-sdks/go/" target="_blank" rel="noopener">Pulumi &amp; Go</a><span class="why">The SDK reference for your actual task: Context, Inputs/Outputs, resource options, and the Go component model.</span></li>
+      <li><a class="x" href="https://www.pulumi.com/docs/iac/concepts/resources/components/" target="_blank" rel="noopener">Pulumi Component Resources</a><span class="why">The end-to-end pattern for a construct — registration, parenting, and exposing outputs.</span></li>
+      <li><a class="x" href="https://pkg.go.dev" target="_blank" rel="noopener">pkg.go.dev</a><span class="why">Docs for every public package (stdlib and third-party). Where you'll live while writing real code.</span></li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>SOURCES: go.dev (spec, tour, blog, 1.26 notes) · pkg.go.dev · pulumi.com/docs</span>
+    <span>GO — EXPLAINER · REV. 2026.1 (Go 1.26)</span>
+  </footer>
+</div>
+
+<!-- ============ knowledge manifest (invisible; for cementing) ============ -->
+<script type="application/json" id="knowledge-manifest">
+{
+  "topic": "The Go programming language, for Python/TypeScript developers writing and reviewing a Pulumi construct",
+  "concepts": [
+    {"term": "goroutine", "oneliner": "A cheap concurrent task started with go f(), scheduled by the runtime, not the OS."},
+    {"term": "channel", "oneliner": "A typed pipe for passing values between goroutines; 'share memory by communicating'."},
+    {"term": "interface", "oneliner": "A method set satisfied implicitly — structural typing checked at compile time, no 'implements'."},
+    {"term": "struct embedding", "oneliner": "Composition-based reuse: an embedded type's fields/methods are promoted; Go's answer to inheritance."},
+    {"term": "error as value", "oneliner": "Functions return an error last; you check 'if err != nil' instead of catching exceptions."},
+    {"term": "zero value", "oneliner": "Every type's default (0, \"\", false, nil); there is no undefined, which motivates pointers for optional fields."},
+    {"term": "pointer receiver", "oneliner": "A method on *T can mutate the value and avoids copying; value receiver gets a copy."},
+    {"term": "generics", "oneliner": "Type parameters like [T any] with constraints, added in Go 1.18 for type-safe reuse."},
+    {"term": "G-P-M scheduler", "oneliner": "Runtime maps many goroutines (G) onto few OS threads (M) via per-core processors (P)."},
+    {"term": "garbage collector", "oneliner": "Automatic memory management built into the runtime; Green Tea GC default in Go 1.26."},
+    {"term": "static binary", "oneliner": "go build produces one dependency-free executable; GOOS/GOARCH cross-compiles."},
+    {"term": "context.Context", "oneliner": "Carries cancellation and deadlines down a call tree to stop goroutines cleanly."},
+    {"term": "typed nil", "oneliner": "An interface holding a nil pointer is not == nil — a top source of Go error-handling bugs."},
+    {"term": "Pulumi Output", "oneliner": "A value known only after resources create; transform it with ApplyT, accept it via the Input interface."},
+    {"term": "ComponentResource", "oneliner": "A Pulumi construct: a struct embedding pulumi.ResourceState, built by a (ctx,name,args,opts)->(*T,error) factory."}
+  ],
+  "mechanisms": [
+    "go f() creates a goroutine -> runtime places it on the global/local run queue -> a P picks it up -> runs on an OS thread M -> on a CPU core; a blocking syscall parks the M and the P grabs a fresh M.",
+    "A function returns (value, error); caller checks if err != nil, optionally wraps with fmt.Errorf(%w), and propagates up; errors.Is/As inspect the wrapped chain.",
+    "A concrete type satisfies an interface the instant it has the required methods — no declaration; the compiler verifies at assignment/call.",
+    "Pulumi: NewX(ctx,name,args,opts) creates the struct -> ctx.RegisterComponentResource(token,name,self,opts...) -> create child resources parented to it -> ctx.RegisterResourceOutputs to expose outputs.",
+    "A Pulumi Output resolves later; Output.ApplyT(fn) schedules fn to run when the value is known and returns a new Output, resolved concurrently by the engine."
+  ],
+  "scenarios": [
+    "You review a Go func that returns a concrete *MyError instead of nil in the success path; callers see a non-nil error. Explain why and the fix.",
+    "A teammate loops over configs spawning goroutines that all print the last item's value. Their go.mod says 'go 1.20'. Diagnose and give two fixes.",
+    "A Pulumi component argument must accept both a literal string and another resource's output. Which type do you use and why does it work?",
+    "A goroutine reads from a channel that nothing ever writes to; memory grows over time. Name the bug class and the idiomatic prevention.",
+    "You need 'optional string' in a Pulumi Args struct so 'unset' differs from empty. What Go type do you choose and why?",
+    "Coming from Python, a colleague expects threads to use all cores for a CPU-bound loop. Explain the GIL-vs-goroutine difference and what Go does instead."
+  ]
+}
+</script>
+
+<script>
+  const tabs = document.querySelectorAll('.tabs [role="tab"]');
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(b => b.setAttribute('aria-selected', b === btn ? 'true' : 'false'));
+      document.querySelectorAll('.tabpanel [role="tabpanel"]').forEach(p => {
+        p.hidden = (p.id !== btn.dataset.tab);
+      });
+    });
+  });
+  // ---- Glossary popover: hover (desktop) / tap (mobile) ----
+  (function(){
+    const pop = document.createElement('div');
+    pop.id = 'glpop';
+    document.body.appendChild(pop);
+    let pinned = false;
+
+    function fill(link){
+      const id = (link.getAttribute('href')||'').slice(1);
+      const entry = document.getElementById(id);
+      if(!entry) return false;
+      const dt = entry.querySelector('dt');
+      const dd = entry.querySelector('dd');
+      if(!dt || !dd) return false;
+      const ext = dd.querySelector('a');
+      const def = dd.cloneNode(true);
+      def.querySelectorAll('a').forEach(a => a.remove());
+      pop.innerHTML =
+        '<span class="t">' + dt.textContent + '</span>' + def.innerHTML +
+        '<div class="links">' +
+        (ext ? '<a href="' + ext.href + '" target="_blank" rel="noopener">Dive deeper ↗</a>' : '') +
+        '<a href="#' + id + '" class="jump">Full glossary ↓</a></div>';
+      return true;
+    }
+    function show(link){
+      if(!fill(link)) return;
+      const r = link.getBoundingClientRect();
+      pop.style.display = 'block';
+      const pw = Math.min(300, window.innerWidth - 24);
+      pop.style.maxWidth = pw + 'px';
+      let x = window.scrollX + r.left;
+      const maxX = window.scrollX + window.innerWidth - pop.offsetWidth - 12;
+      if(x > maxX) x = Math.max(window.scrollX + 12, maxX);
+      pop.style.left = x + 'px';
+      pop.style.top = (window.scrollY + r.bottom + 8) + 'px';
+    }
+    function hide(){ pop.style.display = 'none'; pinned = false; }
+
+    document.querySelectorAll('a.gl').forEach(link => {
+      link.addEventListener('mouseenter', () => { if(!pinned) show(link); });
+      link.addEventListener('mouseleave', () => {
+        setTimeout(() => { if(!pinned && !pop.matches(':hover')) hide(); }, 120);
+      });
+      link.addEventListener('click', (e) => { e.preventDefault(); pinned = true; show(link); });
+    });
+    pop.addEventListener('mouseleave', () => { if(!pinned) hide(); });
+    pop.addEventListener('click', (e) => { if(e.target.classList.contains('jump')) hide(); });
+    document.addEventListener('click', (e) => {
+      if(pinned && !pop.contains(e.target) && !e.target.closest('a.gl')) hide();
+    });
+    window.addEventListener('scroll', () => { if(!pinned) hide(); }, {passive:true});
+  })();
+</script>
+</body>
+</html>
