@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPU Failure Modes &amp; Fleet Remediation — Technical Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAFAF6; --ink:#17191B;
+    --copper:#B0632F; --copper-soft:#F4E4D3;
+    --solder:#0E5138; --solder-soft:#E3EEE7;
+    --blue:#1E4E79; --blue-soft:#E1EAF2;
+    --rule:#D8D8CE; --rule-dark:#9A9C92; --dim:#63665C;
+    --code-bg:#1E211F; --code-ink:#E8EAE2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+  }
+  body{background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+  .sheet{max-width:1080px;margin:0 auto;padding:0 28px 80px;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  h1,h2,h3{font-family:'IBM Plex Sans Condensed',sans-serif;line-height:1.12;}
+
+  a.x{color:var(--copper);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;text-decoration-color:#D9B08C;}
+  a.x:hover{text-decoration-color:var(--copper);}
+  a.x::after{content:"\2197";font-size:.72em;vertical-align:super;margin-left:1px;}
+  a.gl{color:inherit;text-decoration:underline dotted 1.5px var(--rule-dark);text-underline-offset:3px;cursor:help;}
+  a.gl:hover{text-decoration-color:var(--copper);color:var(--copper);}
+  a:focus-visible{outline:2px solid var(--copper);outline-offset:2px;}
+
+  #glpop{position:absolute;z-index:50;max-width:300px;background:var(--ink);color:var(--paper);padding:12px 14px;font-size:13.5px;line-height:1.55;border:1.5px solid var(--copper);box-shadow:4px 4px 0 rgba(23,25,27,.18);display:none;}
+  #glpop .t{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#E8B380;display:block;margin-bottom:4px;letter-spacing:.05em;text-transform:uppercase;}
+  #glpop .links{margin-top:9px;display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;font-family:'IBM Plex Mono',monospace;}
+  #glpop a{color:#E8B380;font-weight:600;text-decoration:underline;text-underline-offset:2px;}
+  #glpop .mono{color:#D9C87C;}
+
+  header{border-bottom:3px solid var(--ink);padding:26px 0 22px;}
+  .doc-line{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--rule);padding-bottom:12px;margin-bottom:24px;}
+  .doc-line .std{color:var(--copper);font-weight:600;}
+  .masthead{display:flex;gap:32px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;}
+  h1{font-size:clamp(36px,5.6vw,58px);font-weight:700;letter-spacing:-.01em;}
+  h1 .amp{color:var(--copper);}
+  .subtitle{max-width:560px;margin-top:12px;font-size:17px;color:#2E312B;}
+  .spec-box{border:1.5px solid var(--ink);min-width:250px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  .spec-box div{display:flex;justify-content:space-between;gap:18px;padding:7px 12px;border-bottom:1px solid var(--rule);}
+  .spec-box div:last-child{border-bottom:0;}
+  .spec-box b{font-weight:600;}
+  .spec-box .k{color:var(--dim);}
+
+  section{padding:48px 0 8px;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1.5px solid var(--ink);padding-bottom:10px;margin-bottom:26px;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--paper);background:var(--ink);padding:3px 9px;}
+  h2{font-size:clamp(24px,3.4vw,32px);font-weight:700;}
+  h3{font-size:18px;font-weight:600;margin-bottom:8px;}
+  p{margin-bottom:14px;max-width:74ch;}
+  .lead{font-size:17.5px;}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+  @media(max-width:760px){.two-col{grid-template-columns:1fr;}}
+
+  .def-card{border:1.5px solid var(--ink);}
+  .def-card .tag{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;border-bottom:1.5px solid var(--ink);display:flex;justify-content:space-between;}
+  .def-card.hw .tag{background:var(--solder-soft);color:var(--solder);}
+  .def-card.sw .tag{background:var(--copper-soft);color:var(--copper);}
+  .def-card .body{padding:16px 18px 6px;}
+  .def-card .one-liner{font-family:'IBM Plex Sans Condensed';font-size:21px;font-weight:600;margin-bottom:10px;}
+
+  .pins{list-style:none;margin:6px 0 16px;}
+  .pins li{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--rule);font-size:15px;max-width:80ch;}
+  .pins li:last-child{border-bottom:0;}
+  .pins .pin{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--copper);white-space:nowrap;min-width:110px;letter-spacing:.04em;}
+
+  .scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0;border:1.5px solid var(--ink);margin:20px 0 22px;}
+  .scenarios div{padding:14px 16px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);}
+  .scenarios .q{font-family:'IBM Plex Sans Condensed';font-weight:600;font-size:16.5px;display:block;margin-bottom:4px;}
+  .scenarios .a{font-size:13.5px;color:var(--dim);}
+  .callout{border-left:4px solid var(--copper);background:var(--copper-soft);padding:14px 18px;margin:18px 0;max-width:78ch;font-size:15.5px;}
+  .callout.green{border-left-color:var(--solder);background:var(--solder-soft);}
+  .callout b{font-weight:600;}
+
+  .diagram-wrap{border:1.5px solid var(--ink);background:#fff;padding:10px 6px 2px;overflow-x:auto;}
+  .diagram-wrap svg{display:block;min-width:720px;width:100%;height:auto;}
+  .fig-cap{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);padding:10px 4px 2px;border-top:1px solid var(--rule);margin-top:8px;}
+  .legend{display:flex;gap:22px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--dim);padding:10px 4px 12px;}
+  .legend span{display:inline-flex;align-items:center;gap:7px;}
+  .swatch{width:22px;height:12px;display:inline-block;border:1px solid var(--rule-dark);}
+  .blk{transition:filter .15s ease;}
+  .blk:hover{filter:brightness(0.96);}
+
+  .tabs{display:flex;gap:0;border:1.5px solid var(--ink);border-bottom:0;flex-wrap:wrap;}
+  .tabs button{font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.03em;padding:10px 16px;background:var(--paper);border:0;border-right:1px solid var(--rule);cursor:pointer;color:var(--dim);}
+  .tabs button:focus-visible{outline:2px solid var(--copper);outline-offset:-2px;}
+  .tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper);}
+  .tabpanel{border:1.5px solid var(--ink);}
+  .tabpanel pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.8px;line-height:1.7;padding:18px 20px;overflow-x:auto;margin:0;}
+  .tabpanel .note{padding:12px 16px;font-size:14px;border-top:1.5px solid var(--ink);background:#fff;}
+  .verb{color:#E8B380;font-weight:600;}
+  .key{color:#8FBF9F;}
+  .str{color:#D9C87C;}
+  .cm2{color:#7B7F76;}
+
+  table{width:100%;border-collapse:collapse;border:1.5px solid var(--ink);font-size:14px;min-width:560px;}
+  thead th{background:var(--ink);color:var(--paper);text-align:left;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;padding:9px 12px;font-weight:600;}
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody td:first-child{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+  td.win{color:var(--solder);font-weight:500;}
+  td.bad{color:var(--copper);}
+  .table-scroll{overflow-x:auto;margin-bottom:18px;}
+  .pick{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.03em;margin:4px 0 14px;padding-left:0;list-style:none;max-width:80ch;}
+  .pick li{padding:6px 0;border-bottom:1px dashed var(--rule);}
+  .pick b{color:var(--solder);font-weight:600;}
+
+  .gotchas{counter-reset:g;max-width:78ch;list-style:none;}
+  .gotchas li{padding:14px 0 14px 52px;position:relative;border-bottom:1px solid var(--rule);}
+  .gotchas li::before{counter-increment:g;content:counter(g,decimal-leading-zero);position:absolute;left:0;top:16px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);}
+  .gotchas b{font-weight:600;}
+
+  .lab{border:1.5px solid var(--ink);background:#fff;margin-bottom:26px;}
+  .lab-head{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:baseline;padding:12px 18px;border-bottom:1.5px solid var(--ink);background:var(--solder-soft);}
+  .lab-head h3{font-size:20px;margin:0;color:var(--solder);}
+  .lab-head .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);}
+  .lab-body{padding:16px 18px 6px;}
+  .steps{list-style:none;counter-reset:s;}
+  .steps > li{counter-increment:s;position:relative;padding:12px 0 12px 56px;border-bottom:1px dashed var(--rule);}
+  .steps > li:last-child{border-bottom:0;}
+  .steps > li::before{content:"S" counter(s);position:absolute;left:0;top:14px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:var(--paper);background:var(--solder);padding:2px 8px;}
+  .steps p{font-size:15px;margin-bottom:6px;}
+  .steps pre{background:var(--code-bg);color:var(--code-ink);font-family:'IBM Plex Mono',monospace;font-size:12.6px;line-height:1.7;padding:12px 16px;overflow-x:auto;margin:8px 0 4px;}
+  .steps .expect{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--solder);margin-top:4px;}
+
+  .glossary{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;}
+  @media(max-width:760px){.glossary{grid-template-columns:1fr;}}
+  .glossary dl{margin:0;}
+  .glossary .entry{padding:11px 0;border-bottom:1px dashed var(--rule);}
+  .glossary dt{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--copper);letter-spacing:.03em;}
+  .glossary dd{font-size:14px;color:#2E312B;margin-top:2px;}
+
+  .reading{list-style:none;max-width:80ch;}
+  .reading li{padding:12px 0;border-bottom:1px dashed var(--rule);font-size:15px;}
+  .reading li:last-child{border-bottom:0;}
+  .reading .why{display:block;font-size:13.5px;color:var(--dim);margin-top:2px;}
+
+  footer{margin-top:64px;border-top:3px solid var(--ink);padding-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+
+  /* ===== MOBILE RULES R1–R8 ===== */
+  .mono, code, a.x, a.gl{overflow-wrap:anywhere;}
+  @media(max-width:640px){
+    .sheet{padding:0 16px 64px;}
+    .steps > li{padding-left:0;padding-top:38px;}
+    .steps > li::before{top:8px;}
+    .gotchas li{padding-left:0;padding-top:40px;}
+    .gotchas li::before{top:12px;}
+    .pins li{flex-direction:column;gap:2px;}
+    .tabpanel pre,.steps pre,.tree{font-size:11.8px;}
+    .tabs button{flex:1;}
+    .spec-box{width:100%;}
+    .fig-cap::before{content:"SWIPE \2192 \00a0\00b7\00a0 ";color:var(--copper);font-weight:600;}
+  }
+</style>
+
+  <!-- shipyard:meta -->
+  <meta name="description" content="Everything that breaks in a large GPU cluster, how each failure announces itself, and how warm-spare automation turns a 60-minute outage into a 5-minute swap — or less.">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="assets/favicon-16.png" sizes="16x16" type="image/png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="manifest" href="assets/site.webmanifest">
+  <meta name="theme-color" content="#FAFAF6">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Explainers — A Personal Field Guide">
+  <meta property="og:title" content="GPU Failure Modes &amp; Fleet Remediation — Technical Brief">
+  <meta property="og:description" content="Everything that breaks in a large GPU cluster, how each failure announces itself, and how warm-spare automation turns a 60-minute outage into a 5-minute swap — or less.">
+  <meta property="og:url" content="https://jacob-petterle.github.io/explainers/gpu-failure-modes-explainer.html">
+  <meta property="og:image" content="https://jacob-petterle.github.io/explainers/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="GPU Failure Modes &amp; Fleet Remediation — Technical Brief">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="GPU Failure Modes &amp; Fleet Remediation — Technical Brief">
+  <meta name="twitter:description" content="Everything that breaks in a large GPU cluster, how each failure announces itself, and how warm-spare automation turns a 60-minute outage into a 5-minute swap — or less.">
+  <meta name="twitter:image" content="https://jacob-petterle.github.io/explainers/assets/og.png">
+  <!-- shipyard:meta -->
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <div class="doc-line">
+      <span>SERIES · GPU FLEET OPERATIONS</span>
+      <span class="std">FIELD BRIEF — FAILURE MODES &amp; REMEDIATION</span>
+      <span>REV. 2026-08</span>
+    </div>
+    <div class="masthead">
+      <div>
+        <h1>GPU Failure Modes <span class="amp">&amp;</span> Fleet Remediation</h1>
+        <p class="subtitle">Everything that breaks in a large GPU cluster, how each failure announces itself, and how warm-spare automation turns a 60-minute outage into a 5-minute swap — or less.</p>
+      </div>
+      <div class="spec-box" role="table" aria-label="Quick reference">
+        <div><span class="k">MTBF @ 1,024 GPUs</span><b>≈ 8 hours</b></div>
+        <div><span class="k">MANUAL SWAP</span><b>60–120 min</b></div>
+        <div><span class="k">WARM POOL SWAP</span><b>4–5 min</b></div>
+        <div><span class="k">HOT SPARE SWAP</span><b>~1–2 min</b></div>
+        <div><span class="k">THEORETICAL FLOOR</span><b>30–60 s</b></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ 1. WHAT IT IS ============ -->
+  <section id="what">
+    <div class="sec-head"><span class="sec-num">1</span><h2>The two halves of the problem</h2></div>
+    <div class="two-col">
+      <div class="def-card hw">
+        <div class="tag"><span>HALF A</span><span>SENSING</span></div>
+        <div class="body">
+          <div class="one-liner">Detection — knowing a node is bad</div>
+          <p>Passive telemetry (<a class="gl" href="#g-dcgm">DCGM</a>, <a class="gl" href="#g-xid">Xid</a> events, fabric counters) catches hard failures in seconds. Active load tests and fleet-level statistics catch the slow stuff — drift, <a class="gl" href="#g-straggler">stragglers</a>, <a class="gl" href="#g-lemon">lemon nodes</a> — that never throws an error.</p>
+        </div>
+      </div>
+      <div class="def-card sw">
+        <div class="tag"><span>HALF B</span><span>ACTING</span></div>
+        <div class="body">
+          <div class="one-liner">Remediation — swapping it out fast</div>
+          <p><a class="gl" href="#g-cordon">Cordon</a> the bad node, <a class="gl" href="#g-drain">drain</a> its workloads, pull a pre-validated node from a <a class="gl" href="#g-warm-spare">warm spare pool</a>, and let the scheduler carry on. The physical repair happens later, invisibly, in the provider's back office.</p>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:20px"><b>The relationship in one sentence:</b> detection decides <em>when</em> to act and remediation decides <em>how fast</em> — and at scale both must be automated, because failures arrive faster than humans can respond.</p>
+  </section>
+
+  <!-- ============ 2. WHY ============ -->
+  <section id="why">
+    <div class="sec-head"><span class="sec-num">2</span><h2>Why this dominates the economics</h2></div>
+    <p class="lead">Meta's analysis of 150M A100 GPU-hours shows failure is not an edge case — it's a scheduled event. <a class="gl" href="#g-mtbf">MTBF</a> shrinks roughly linearly with cluster size:</p>
+    <div class="scenarios">
+      <div><span class="q">8 GPUs</span><span class="a">MTBF ≈ 47 days. Ad-hoc human response is fine.</span></div>
+      <div><span class="q">1,024 GPUs</span><span class="a">MTBF ≈ 8 hours. ~3 failures per day, every day.</span></div>
+      <div><span class="q">16,384 GPUs</span><span class="a">MTBF ≈ 1.8 hours. Humans cannot keep up.</span></div>
+      <div><span class="q">One synchronous job</span><span class="a">A single bad GPU stalls every rank — all nodes wait on the slowest.</span></div>
+    </div>
+    <p>The lever is <a class="gl" href="#g-goodput">goodput</a>: <span class="mono">G = (1 − (checkpoint + rollback + queue-wait)) × efficiency</span>. Checkpointing and rollback loss are bounded by physics once optimized. Queue wait — dead time waiting for a replacement node — is the largest <em>controllable</em> term.</p>
+    <div class="callout"><b>The core promise of automated remediation:</b> cutting queue wait from 60 min (manual) to 5 min (warm pool) on a 1,000-GPU cluster with 3 failures/day lifts goodput from ~81% to ~92%. You pay the saving on <em>every</em> failure, forever.</div>
+  </section>
+
+  <!-- ============ 3. DIAGRAM ============ -->
+  <section id="diagram">
+    <div class="sec-head"><span class="sec-num">3</span><h2>The swap — two layers, one trick</h2></div>
+    <p>The 5-minute number is an <em>orchestration-layer</em> swap: which physical machine backs a cluster slot. The expensive physical loop (diagnose → repair/<a class="gl" href="#g-rma">RMA</a> → <a class="gl" href="#g-burnin">burn-in</a>) runs later, off the critical path, refilling the pool.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 980 560" role="img" aria-label="Two-layer diagram. Top: tenant Kubernetes cluster where node 07 fails, is cordoned and drained, and a warm spare joins from the pool along a timeline from detection at T plus zero to a ready spare at four to five minutes. Bottom: the provider's physical loop where the failed node is diagnosed, repaired in place or RMAed, burn-in tested, and returned to the warm spare pool.">
+        <!-- timeline strip -->
+        <line x1="30" y1="52" x2="950" y2="52" stroke="#17191B" stroke-width="2"/>
+        <g font-family="IBM Plex Mono" font-size="10.5" font-weight="600" fill="#17191B">
+          <circle cx="60" cy="52" r="4" fill="#B0632F"/><text x="60" y="34" text-anchor="middle" fill="#B0632F">T+0</text><text x="60" y="74" text-anchor="middle" fill="#63665C">DETECT · Xid/DCGM</text>
+          <circle cx="330" cy="52" r="4" fill="#17191B"/><text x="330" y="34" text-anchor="middle">T+30s</text><text x="330" y="74" text-anchor="middle" fill="#63665C">CORDON · unschedulable</text>
+          <circle cx="600" cy="52" r="4" fill="#17191B"/><text x="600" y="34" text-anchor="middle">T+60s</text><text x="600" y="74" text-anchor="middle" fill="#63665C">DRAIN · preStop checkpoint</text>
+          <circle cx="880" cy="52" r="4" fill="#0E5138"/><text x="880" y="34" text-anchor="middle" fill="#0E5138">T+4–5m</text><text x="880" y="74" text-anchor="middle" fill="#0E5138">SPARE SCHEDULABLE</text>
+        </g>
+
+        <!-- tenant layer -->
+        <rect x="30" y="96" width="920" height="180" fill="#E1EAF2" fill-opacity=".45" stroke="#1E4E79" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="46" y="120" font-family="IBM Plex Mono" font-size="11" fill="#1E4E79" letter-spacing="1">TENANT CLUSTER — KUBERNETES / SLURM LAYER (WHAT YOU SEE)</text>
+
+        <g class="blk"><rect x="60" y="140" width="130" height="70" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+          <text x="125" y="168" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700">SCHEDULER</text>
+          <text x="125" y="188" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">kube / slurmctld</text></g>
+
+        <g class="blk"><rect x="230" y="140" width="120" height="70" fill="#FFFFFF" stroke="#B0632F" stroke-width="2.4"/>
+          <text x="290" y="164" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700" fill="#B0632F">NODE 07</text>
+          <text x="290" y="182" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#B0632F">Xid 79 · FAILED</text>
+          <text x="290" y="198" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">cordoned ✕</text></g>
+
+        <g class="blk"><rect x="380" y="140" width="120" height="70" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+          <text x="440" y="168" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700">NODE 08</text>
+          <text x="440" y="188" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">healthy</text></g>
+
+        <g class="blk"><rect x="530" y="140" width="120" height="70" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+          <text x="590" y="168" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700">NODE 09</text>
+          <text x="590" y="188" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">healthy</text></g>
+
+        <g class="blk"><rect x="740" y="140" width="150" height="70" fill="#E3EEE7" stroke="#0E5138" stroke-width="2.4"/>
+          <text x="815" y="164" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700" fill="#0E5138">SPARE 31</text>
+          <text x="815" y="182" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#0E5138">joins · no re-validation</text>
+          <text x="815" y="198" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">(burn-in already paid)</text></g>
+
+        <path d="M190 175 L230 175" stroke="#17191B" stroke-width="1.6"/>
+        <path d="M190 160 L380 160" stroke="#17191B" stroke-width="1.6" opacity=".35"/>
+        <text x="668" y="180" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#0E5138" font-weight="600">tenant net + fabric</text>
+        <text x="668" y="194" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#0E5138">attach ≈ the 4 min</text>
+        <path d="M740 175 L650 175" stroke="#0E5138" stroke-width="2" stroke-dasharray="7 5"/>
+
+        <text x="46" y="252" font-family="IBM Plex Mono" font-size="10" fill="#63665C">CORDON = scheduler metadata flag, instant · DRAIN = evict pods after preStop grace · the "replacement" is just re-pointing a cluster slot at different metal</text>
+
+        <!-- vertical arrows -->
+        <path d="M290 210 L290 330" stroke="#B0632F" stroke-width="2.2" marker-end="url(#arrC)"/>
+        <text x="300" y="290" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#B0632F">swap-out</text>
+        <path d="M815 330 L815 210" stroke="#0E5138" stroke-width="2.2" marker-end="url(#arrG)"/>
+        <text x="825" y="290" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#0E5138">swap-in</text>
+
+        <defs>
+          <marker id="arrC" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#B0632F"/></marker>
+          <marker id="arrG" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0E5138"/></marker>
+        </defs>
+
+        <!-- provider layer -->
+        <rect x="30" y="330" width="920" height="180" fill="#F4E4D3" fill-opacity=".5" stroke="#B0632F" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="46" y="354" font-family="IBM Plex Mono" font-size="11" fill="#B0632F" letter-spacing="1">PROVIDER PHYSICAL LOOP (INVISIBLE TO TENANT · OFF THE CRITICAL PATH)</text>
+
+        <g class="blk"><rect x="60" y="380" width="170" height="80" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+          <text x="145" y="408" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700">DIAGNOSE</text>
+          <text x="145" y="428" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">BMC logs · SEL · DCGM</text>
+          <text x="145" y="444" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">transient or terminal?</text></g>
+
+        <g class="blk"><rect x="280" y="380" width="190" height="80" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+          <text x="375" y="404" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700">FIX IN PLACE / RMA</text>
+          <text x="375" y="424" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">GPU reset · power cycle</text>
+          <text x="375" y="440" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">row-remap commit · parts swap</text></g>
+
+        <g class="blk"><rect x="520" y="380" width="160" height="80" fill="#FFFFFF" stroke="#17191B" stroke-width="1.8"/>
+          <text x="600" y="408" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700">BURN-IN</text>
+          <text x="600" y="428" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">stress + mem + fabric tests</text>
+          <text x="600" y="444" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">20–30 min cold bring-up</text></g>
+
+        <g class="blk"><rect x="730" y="380" width="170" height="80" fill="#E3EEE7" stroke="#0E5138" stroke-width="2.4"/>
+          <text x="815" y="408" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="15" font-weight="700" fill="#0E5138">WARM POOL</text>
+          <text x="815" y="428" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">booted · drivers loaded</text>
+          <text x="815" y="444" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#63665C">topologically spread</text></g>
+
+        <g stroke="#17191B" stroke-width="1.6" fill="none">
+          <path d="M230 420 L280 420"/><path d="M470 420 L520 420"/><path d="M680 420 L730 420"/>
+        </g>
+        <text x="46" y="496" font-family="IBM Plex Mono" font-size="10" fill="#63665C">NOTE: per-serial failure lineage is recorded at every stage — 3 strikes under real load despite passing burn-in ⇒ permanent removal (lemon).</text>
+      </svg>
+      <div class="legend">
+        <span><span class="swatch" style="background:#E1EAF2"></span>tenant orchestration layer</span>
+        <span><span class="swatch" style="background:#F4E4D3"></span>provider physical loop</span>
+        <span><span class="swatch" style="background:#B0632F"></span>failure path</span>
+        <span><span class="swatch" style="background:#0E5138"></span>spare path</span>
+      </div>
+      <div class="fig-cap">FIG. 3-1 — The swap is scheduler metadata; the metal moves later. Burn-in paid in advance is what makes "no validation at swap time" possible.</div>
+    </div>
+  </section>
+
+  <!-- ============ 4. FAILURE MODES ============ -->
+  <section id="modes">
+    <div class="sec-head"><span class="sec-num">4</span><h2>Failure mode catalog</h2></div>
+    <p class="lead">Three classes, in ascending order of detection difficulty. Hard failures are a speed problem; slow failures are a <em>statistics</em> problem; systemic patterns are a <em>judgment</em> problem.</p>
+
+    <h3 style="margin-top:22px">4.1 — Hard failures <span class="mono" style="font-size:12px;color:var(--dim)">· BINARY · DETECT IN SECONDS · AUTO-REPLACE</span></h3>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Mode</th><th>What happened</th><th>Signal</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>BUS DROP</td><td>GPU falls off the PCIe bus entirely.</td><td><a class="gl" href="#g-xid">Xid</a> 79 in kernel log; GPU vanishes from <span class="mono">nvidia-smi</span>.</td><td class="bad">Replace node.</td></tr>
+        <tr><td>UNCORR. ECC</td><td>Double-bit / uncontained memory error crashes the workload.</td><td>Xid 48 (DBE), Xid 94/95 (contained/uncontained).</td><td>Migrate; <a class="gl" href="#g-rowremap">row-remap</a> commits on next power cycle — often no RMA needed.</td></tr>
+        <tr><td>GPU HANG</td><td>GSP firmware crash or engine timeout; GPU unresponsive.</td><td>Xid 119/120 (GSP RPC), stuck kernels, DCGM timeout.</td><td>GPU reset first; replace if recurrent.</td></tr>
+        <tr><td>NVLINK ERR</td><td>Intra-node GPU interconnect faults.</td><td>Xid 74; NVLink error counters.</td><td>Reset/retrain; replace if persistent.</td></tr>
+        <tr><td>NODE DEAD</td><td>Kernel panic, PSU failure, node stops heartbeating.</td><td>NodeNotReady; BMC/<a class="gl" href="#g-sel">SEL</a> events; no telemetry at all.</td><td class="bad">Replace node.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>4.2 — Slow failures (drift) <span class="mono" style="font-size:12px;color:var(--dim)">· NO ERROR THROWN · NEEDS TRENDS + ACTIVE TESTS</span></h3>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Mode</th><th>What happened</th><th>Signal</th><th>Why it's hard</th></tr></thead>
+      <tbody>
+        <tr><td>ECC CREEP</td><td>Correctable errors clustering on one HBM stack — memory is dying.</td><td>Correctable-ECC counter trend per GPU; Xid 63/64 remap events.</td><td>Each single error is "normal." Act on the <em>rate</em>, before the uncorrectable one kills a job.</td></tr>
+        <tr><td>THERMAL SAG</td><td>Failing fan / degraded TIM / DC cooling issue → clock throttling.</td><td>DCGM throttle-reason flags, clock vs. temp trend.</td><td>GPU still reports "healthy." You're paying for compute you're not getting.</td></tr>
+        <tr><td>STRAGGLER</td><td>One GPU runs 10% slow; every synchronous <a class="gl" href="#g-allreduce">allreduce</a> waits for it — the whole job runs at its pace.</td><td>Per-rank step-time distribution. <em>Only visible from inside the workload.</em></td><td>No error anywhere. The training framework is the only sensor — the case for a customer→provider report API.</td></tr>
+        <tr><td>LINK DEGRADE</td><td>PCIe downtrains ×16→×8; NVLink lanes drop; IB optics flap.</td><td>Link-width/speed registers; fabric error counters; per-pair bandwidth tests.</td><td>Bandwidth silently halves; correctness unaffected.</td></tr>
+        <tr><td>SDC</td><td><a class="gl" href="#g-sdc">Silent data corruption</a>: a failing ALU computes wrong answers with no error flag. Loss curves quietly diverge.</td><td>Periodic known-answer tests on idle GPUs; duplicate-compute spot checks.</td><td>The scariest mode — undetectable by any counter. Only caught by checking the math.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>4.3 — Systemic patterns <span class="mono" style="font-size:12px;color:var(--dim)">· FLEET-LEVEL · AUTOMATION MUST YIELD TO JUDGMENT</span></h3>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Mode</th><th>What happened</th><th>Signal</th><th>Correct response</th></tr></thead>
+      <tbody>
+        <tr><td>LEMON NODE</td><td>Passes idle health checks, fails under real load, cycles back into the fleet repeatedly.</td><td>Per-serial failure lineage across jobs, tenants, and time.</td><td class="win">Track a rap sheet per serial; 3 strikes ⇒ permanent removal. Meta: large-job failure rate 14% → 4%.</td></tr>
+        <tr><td>CORRELATED</td><td>Switch, PDU, or bad driver push takes out many nodes at once.</td><td>Failures clustered in time <em>and</em> topology (same rack / leaf).</td><td class="win">Circuit breaker: halt auto-replacement, page a human. Naive automation churns the whole spare pool while the real fault persists.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="callout green"><b>Two-tier gate for destructive actions:</b> Tier 1 stays dumb and deterministic ("N failures / rack / 60 s ⇒ halt") — no LLM in the sub-minute hot path. Tier 2 is the ambiguous middle where an agent earns its keep: ingest DCGM history, switch counters, config pushes, thermal maps, and serial lineage; output "87% confident it's the leaf switch, not 12 bad nodes — escalate to network, don't burn spares." Minutes-scale latency budget tolerates reasoning.</div>
+  </section>
+
+  <!-- ============ 5. HANDS-ON ============ -->
+  <section id="handson">
+    <div class="sec-head"><span class="sec-num">5</span><h2>Hands-on mechanics</h2></div>
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="t-detect">DETECT</button>
+      <button role="tab" aria-selected="false" data-tab="t-cordon">CORDON / DRAIN</button>
+      <button role="tab" aria-selected="false" data-tab="t-hook">PRESTOP HOOK</button>
+      <button role="tab" aria-selected="false" data-tab="t-loop">OPEN-LOOP EVENT</button>
+    </div>
+    <div class="tabpanel">
+      <div role="tabpanel" id="t-detect">
+<pre><span class="cm2"># Hard failures announce themselves in the kernel log:</span>
+<span class="verb">sudo dmesg</span> | grep -i xid
+<span class="cm2">#   NVRM: Xid (PCI:0000:1a:00): 79, GPU has fallen off the bus.</span>
+
+<span class="cm2"># Drift needs counters, not events — DCGM health + ECC trend:</span>
+<span class="verb">dcgmi health</span> --check -g 0
+<span class="verb">dcgmi dmon</span> -e 203,204,230,231   <span class="cm2"># util, clocks, ECC counters over time</span></pre>
+        <div class="note"><b>Takeaway:</b> Xid = event (hard failure, seconds). DCGM = time series (drift, needs a baseline and a trend). You need both.</div>
+      </div>
+      <div role="tabpanel" id="t-cordon" hidden>
+<pre><span class="verb">kubectl cordon</span> node-07          <span class="cm2"># scheduler metadata flag: unschedulable. Instant.</span>
+<span class="verb">kubectl drain</span> node-07 \
+  --ignore-daemonsets --delete-emptydir-data \
+  --grace-period=30               <span class="cm2"># evict pods; preStop hooks get 30 s to checkpoint</span>
+<span class="verb">kubectl uncordon</span> spare-31        <span class="cm2"># if the spare is pre-joined: THIS is the whole swap</span></pre>
+        <div class="note"><b>Takeaway:</b> cordon costs milliseconds. If spares are already registered in the cluster (hot, cordoned), replacement collapses to <span class="mono">cordon + uncordon</span> — the 30–60 s theoretical floor, bounded only by detection.</div>
+      </div>
+      <div role="tabpanel" id="t-hook" hidden>
+<pre><span class="cm2"># Pod spec — vanilla Kubernetes, nothing provider-specific:</span>
+<span class="key">lifecycle:</span>
+  <span class="key">preStop:</span>
+    <span class="key">exec:</span>
+      <span class="key">command:</span> [<span class="str">"/bin/sh"</span>, <span class="str">"-c"</span>, <span class="str">"/app/flush-checkpoint.sh"</span>]
+<span class="key">terminationGracePeriodSeconds:</span> 30</pre>
+        <div class="note"><b>Takeaway:</b> the "grace period to checkpoint" in provider remediation flows is just the standard k8s container lifecycle hook — run this before SIGKILL, wait up to the grace period.</div>
+      </div>
+      <div role="tabpanel" id="t-loop" hidden>
+<pre><span class="cm2"># Open-loop remediation: provider emits the event, YOU sequence the fix.</span>
+<span class="cm2"># Event (webhook → your automation):</span>
+{ <span class="key">"event"</span>: <span class="str">"node.unhealthy"</span>, <span class="key">"node"</span>: <span class="str">"node-07"</span>,
+  <span class="key">"cause"</span>: <span class="str">"xid_79_pcie_bus_drop"</span>, <span class="key">"serial"</span>: <span class="str">"GPU-8f2c…"</span>,
+  <span class="key">"action_taken"</span>: <span class="str">"cordoned"</span> }        <span class="cm2"># cordon is always unilateral</span>
+
+<span class="cm2"># Your logic runs (custom checkpoint, notify, validate), then:</span>
+<span class="verb">POST</span> /v1/remediations  { <span class="key">"node"</span>: <span class="str">"node-07"</span>, <span class="key">"action"</span>: <span class="str">"replace"</span> }</pre>
+        <div class="note"><b>Takeaway:</b> the API must be bidirectional — events out (provider detects), remediation calls in (customer detects, e.g. stragglers only visible inside the workload). Clean line: provider always cordons (non-destructive), never replaces without the call in open-loop mode.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 6. REMEDIATION APPROACHES ============ -->
+  <section id="approaches">
+    <div class="sec-head"><span class="sec-num">6</span><h2>Remediation approaches compared</h2></div>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Approach</th><th>Node back in fleet</th><th>What's pre-paid</th><th>Tradeoff</th></tr></thead>
+      <tbody>
+        <tr><td>MANUAL</td><td class="bad">60–120 min</td><td>Nothing — page, triage, provision, validate, restart.</td><td>Only viable below ~100 GPUs; goodput bleeds at scale.</td></tr>
+        <tr><td>WARM POOL (provider auto)</td><td class="win">4–5 min</td><td>Boot, drivers, GPU init, burn-in. Swap cost = tenant plumbing: VM/bare-metal context, VPC + IB pkey attach, cluster join.</td><td>Provider controls sequencing; fine for most.</td></tr>
+        <tr><td>HOT SPARE (pre-joined)</td><td class="win">~1–2 min</td><td>Everything, incl. cluster membership + fabric partition — spare sits cordoned in <em>your</em> cluster. AWS-style checkpointless: 1 m 45 s incl. job recovery.</td><td>Spare capacity billed inside your cluster; you own the automation.</td></tr>
+        <tr><td>THEORETICAL FLOOR</td><td class="win">30–60 s</td><td>Swap = cordon + uncordon; detection is the long pole (NodeNotReady ~40 s default, tunable; Xid ≈ seconds).</td><td>Only for hard failures — drift inherently takes longer to <em>detect</em> than to remediate.</td></tr>
+        <tr><td>FT FRAMEWORKS</td><td>N/A — job survives</td><td>torchft-style: communicator reforms around the loss, no full restart.</td><td>Code changes; ecosystem still maturing. Complements, doesn't replace, node swap.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <ul class="pick">
+      <li><b>PICK PROVIDER-AUTO WHEN</b> you want failures to disappear and your SLA story to be someone else's problem — the sane default.</li>
+      <li><b>PICK OPEN-LOOP WHEN</b> you run custom checkpoint/validation flows and need to sequence remediation yourself (big-lab profile).</li>
+      <li><b>PICK HOT SPARES WHEN</b> queue-wait minutes are worth more than the idle-spare cost — very large synchronous jobs.</li>
+      <li><b>PRODUCT DEFAULT:</b> auto-remediation ON, opt-out to open-loop; everyone gets the event stream regardless.</li>
+    </ul>
+  </section>
+
+  <!-- ============ 7. API SURFACE ============ -->
+  <section id="api">
+    <div class="sec-head"><span class="sec-num">7</span><h2>If you're the one selling the metal — API checklist</h2></div>
+    <ul class="pins">
+      <li><span class="pin">EVENTS OUT</span>Webhook/stream of every detection: BMC sensors, DCGM, out-of-band health, remediation lifecycle. Sent to <em>all</em> customers, auto-mode or not.</li>
+      <li><span class="pin">REPORTS IN</span>"Node X is bad, swap it" API. Non-optional: stragglers, lemons, and SDC are only visible from inside the customer's workload — their training framework is your best sensor.</li>
+      <li><span class="pin">CORDON RULE</span>Reserve the unilateral right to cordon (non-destructive) even in open-loop mode — a flapping IB link harms the shared fabric. Never <em>replace</em> without the customer's call.</li>
+      <li><span class="pin">LINEAGE DB</span>Per-serial rap sheet (GPU, chassis, NIC tracked separately — parts migrate between hosts): failures, triggering job type, remediation tried, recurrence. Cross-tenant, cross-time. Feeds lemon detection and the Tier-2 agent.</li>
+      <li><span class="pin">CIRCUIT BREAKER</span>Deterministic Tier-1 halt on clustered failures; Tier-2 agent for the ambiguous middle with confidence + recommended action.</li>
+      <li><span class="pin">POOL HYGIENE</span>Spares sized to failure rate, topologically spread (not one rack), and health-cycled — idle hardware degrades and firmware goes stale.</li>
+    </ul>
+  </section>
+
+  <!-- ============ 8. GOTCHAS ============ -->
+  <section id="gotchas">
+    <div class="sec-head"><span class="sec-num">8</span><h2>Gotchas</h2></div>
+    <ol class="gotchas">
+      <li><b>False positives burn real spares.</b> A thermal blip or transient network hiccup that clears on retry must not trigger replacement — act on patterns over time, never single data points.</li>
+      <li><b>The "5 minutes" is infrastructure availability, not job resumption.</b> Your training job still restarts from checkpoint, reforms NCCL communicators, reloads the model — often longer than the hardware swap itself. Read SLAs accordingly.</li>
+      <li><b>ECC errors usually don't mean RMA.</b> Row remapping replaces the bad HBM row with a spare row on-die; the fix is recorded in the <a class="gl" href="#g-inforom">InfoROM</a> and committed on the next full power cycle. RMA only when spare rows run out.</li>
+      <li><b>Synthetic health checks fundamentally can't catch lemons.</b> Some hardware only fails under real production load. The workload is the only test that matters — hence per-serial lineage.</li>
+      <li><b>The platform generation barely matters on the swap path.</b> B300-class POST (10–15 min) and cold bring-up (20–30 min) never touch the swap; they only set how fast the spare pool <em>refills</em>.</li>
+      <li><b>Watch correlated failures before trusting your automation.</b> The lab below lets you rehearse the whole cordon/drain/swap flow — and a cordon storm — with zero GPUs.</li>
+    </ol>
+  </section>
+
+  <!-- ============ 9. LABS ============ -->
+  <section id="labs">
+    <div class="sec-head"><span class="sec-num">9</span><h2>Run it yourself</h2></div>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB A — cordon, drain, swap on a laptop cluster</h3><span class="meta">~10 min · needs Docker</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li><p><b>Install kind and create a 4-node cluster</b> (Kubernetes-in-Docker; each "node" is a container). <a class="x" href="https://kind.sigs.k8s.io/docs/user/quick-start/" target="_blank" rel="noopener">install docs</a></p>
+<pre>cat &lt;&lt;EOF | kind create cluster --config=-
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes: [{role: control-plane},{role: worker},{role: worker},{role: worker}]
+EOF
+kubectl get nodes</pre>
+          <p class="expect">EXPECT: 1 control-plane + 3 workers, all Ready.</p></li>
+          <li><p><b>Deploy a workload and mark one worker "failed."</b></p>
+<pre>kubectl create deployment train --image=nginx --replicas=6
+kubectl cordon kind-worker
+kubectl drain kind-worker --ignore-daemonsets --grace-period=30</pre>
+          <p class="expect">EXPECT: kind-worker shows SchedulingDisabled; pods reschedule onto the other two workers — this is the exact flow from Section 3, minus the GPUs.</p></li>
+          <li><p><b>Time the "swap-in":</b> uncordon and watch the scheduler use it again.</p>
+<pre>time kubectl uncordon kind-worker
+kubectl scale deployment train --replicas=12 &amp;&amp; kubectl get pods -o wide</pre>
+          <p class="expect">EXPECT: uncordon returns in &lt;1 s — the orchestration swap really is metadata. Everything slower in production is tenant plumbing.</p></li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB B — simulate a 100-node fleet and a correlated failure</h3><span class="meta">~15 min · needs Docker + kwok</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li><p><b>Install kwok</b> (Kubernetes WithOut Kubelet — simulates thousands of fake nodes cheaply). <a class="x" href="https://kwok.sigs.k8s.io/docs/user/kwok-in-cluster/" target="_blank" rel="noopener">kwok docs</a> Run it inside the LAB A cluster, then create 100 fake nodes with a rack label:</p>
+<pre>kwokctl create cluster --name sim
+kwokctl --name sim scale node --replicas 100
+<span class="cm2"># label 10 fake nodes per "rack":</span>
+i=0; for n in $(kubectl --context kwok-sim get nodes -o name); do
+  kubectl --context kwok-sim label $n rack=rack-$((i/10)); i=$((i+1))
+done</pre>
+          <p class="expect">EXPECT: kubectl get nodes shows 100 fake Ready nodes, 10 per "rack".</p></li>
+          <li><p><b>Simulate a correlated failure:</b> cordon every node in one rack at once.</p>
+<pre>kubectl --context kwok-sim cordon -l rack=rack-3</pre>
+          <p class="expect">EXPECT: 10 nodes go SchedulingDisabled simultaneously — the exact signature (clustered in time + topology) your Tier-1 circuit breaker must catch before auto-replacement drains the spare pool.</p></li>
+          <li><p><b>Write the circuit breaker</b> as a 10-line script: count cordoned nodes per rack label per minute; if &gt; 3, print <span class="mono">HALT AUTOMATION — ESCALATE</span> instead of "replacing."</p>
+          <p class="expect">EXPECT: single-node cordons pass through; the rack-wide event trips the breaker. You've built Section 4.3.</p></li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="lab">
+      <div class="lab-head"><h3>LAB C — graduation: real GPU telemetry</h3><span class="meta">optional · needs an NVIDIA GPU</span></div>
+      <div class="lab-body">
+        <ol class="steps">
+          <li><p><b>Run dcgm-exporter</b> and watch the counters that drive drift detection. <a class="x" href="https://github.com/NVIDIA/dcgm-exporter" target="_blank" rel="noopener">github.com/NVIDIA/dcgm-exporter</a></p>
+<pre>docker run -d --gpus all --cap-add SYS_ADMIN -p 9400:9400 \
+  nvcr.io/nvidia/k8s/dcgm-exporter:latest
+curl -s localhost:9400/metrics | grep -E 'ECC|THERMAL|CLOCK'</pre>
+          <p class="expect">EXPECT: Prometheus-format ECC counters, throttle reasons, and clocks — the raw feed behind every table in Section 4. Trend these, don't threshold them.</p></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 10. GLOSSARY ============ -->
+  <section id="glossary">
+    <div class="sec-head"><span class="sec-num">10</span><h2>Glossary</h2></div>
+    <div class="glossary">
+      <dl>
+        <div class="entry" id="g-cordon"><dt>Cordon</dt><dd>Kubernetes scheduler flag marking a node unschedulable — nothing new lands on it. Pure control-plane metadata, instant, non-destructive. <a class="x" href="https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/" target="_blank" rel="noopener">k8s docs</a></dd></div>
+        <div class="entry" id="g-drain"><dt>Drain</dt><dd>Evicting a cordoned node's running pods, honoring grace periods and preStop hooks so workloads can checkpoint before termination.</dd></div>
+        <div class="entry" id="g-dcgm"><dt>DCGM</dt><dd>NVIDIA Data Center GPU Manager — the telemetry layer (temps, clocks, ECC counters, throttle reasons, health checks) every fleet monitor is built on. <a class="x" href="https://developer.nvidia.com/dcgm" target="_blank" rel="noopener">nvidia.com/dcgm</a></dd></div>
+        <div class="entry" id="g-xid"><dt>Xid</dt><dd>NVIDIA driver error codes written to the kernel log when a GPU fault occurs — e.g. 79 = fell off the bus, 48 = double-bit ECC, 119/120 = GSP firmware faults. <a class="x" href="https://docs.nvidia.com/deploy/xid-errors/index.html" target="_blank" rel="noopener">Xid reference</a></dd></div>
+        <div class="entry" id="g-rowremap"><dt>Row remapping</dt><dd>HBM's self-repair: a failing memory row is replaced by a spare hardware row on the die. Scheduled in software immediately; committed permanently on the next full power cycle.</dd></div>
+        <div class="entry" id="g-inforom"><dt>InfoROM</dt><dd>Persistent non-volatile storage on the GPU board recording remapped rows and retired pages, so protections survive reboots and reinstalls.</dd></div>
+        <div class="entry" id="g-sel"><dt>SEL</dt><dd>System Event Log — the BMC's own hardware log (ECC, thermal trips, PSU faults), readable even when the host is dead. The BMC is the tiny always-on management computer inside every server.</dd></div>
+        <div class="entry" id="g-mtbf"><dt>MTBF</dt><dd>Mean time between failures. Shrinks roughly linearly with component count: what's 47 days at 8 GPUs is ~8 hours at 1,024.</dd></div>
+        <div class="entry" id="g-goodput"><dt>Goodput</dt><dd>The fraction of paid compute time spent doing useful work — what remains after checkpoint overhead, rollback loss, and queue wait.</dd></div>
+      </dl>
+      <dl>
+        <div class="entry" id="g-warm-spare"><dt>Warm / hot spare</dt><dd>Warm: powered, booted, burn-in-validated, waiting in the provider's pool. Hot: additionally pre-joined to <em>your</em> cluster and fabric partition, sitting cordoned — swap-in is just uncordon.</dd></div>
+        <div class="entry" id="g-burnin"><dt>Burn-in</dt><dd>Stress, memory, and fabric testing before a node enters service. Paying validation up-front is what makes zero-validation swaps possible later.</dd></div>
+        <div class="entry" id="g-straggler"><dt>Straggler</dt><dd>A GPU running slower than its peers with no error. In synchronous training every collective waits for the slowest rank, so one straggler sets the pace of the whole job.</dd></div>
+        <div class="entry" id="g-allreduce"><dt>Allreduce</dt><dd>The collective operation (via NCCL) that synchronizes gradients across all GPUs each training step — the reason one slow or dead GPU stalls everyone.</dd></div>
+        <div class="entry" id="g-sdc"><dt>SDC — silent data corruption</dt><dd>Hardware computes a wrong result with no error flagged. Detectable only by re-checking the math: known-answer tests, duplicate computation.</dd></div>
+        <div class="entry" id="g-lemon"><dt>Lemon node</dt><dd>Hardware that passes idle health checks but fails repeatedly under real load, cycling through the fleet. Cured only by per-serial failure lineage and permanent exclusion.</dd></div>
+        <div class="entry" id="g-rma"><dt>RMA</dt><dd>Return Merchandise Authorization — sending failed hardware back to the vendor for repair or replacement. The slow, terminal branch of the physical loop.</dd></div>
+        <div class="entry" id="g-openloop"><dt>Open-loop remediation</dt><dd>Provider detects and emits events; the customer's automation sequences the response and calls the remediation API to trigger replacement. The opt-out from full auto.</dd></div>
+        <div class="entry" id="g-pkey"><dt>IB pkey / partition</dt><dd>InfiniBand's tenant-isolation mechanism — a partition key scoping which nodes can talk on the fabric. Attaching a spare to the right partition is part of the "4 minutes."</dd></div>
+      </dl>
+    </div>
+
+    <h3 style="margin-top:36px;border-top:1.5px solid var(--ink);padding-top:18px">Further reading</h3>
+    <ul class="reading">
+      <li><a class="x" href="https://arxiv.org/abs/2410.21680" target="_blank" rel="noopener">Meta — Revisiting Reliability in Large-Scale ML Research Clusters</a><span class="why">The primary data: 150M A100 GPU-hours, the MTBF-vs-scale curve, and the lemon-node result (14% → 4%).</span></li>
+      <li><a class="x" href="https://www.crusoe.ai/resources/blog/autoclusters-minimizing-hardware-failures-in-large-gpu-clusters" target="_blank" rel="noopener">Crusoe — AutoClusters</a><span class="why">The worked goodput example, the 4–5 min swap timeline breakdown, circuit breakers, and open-loop remediation — the post this brief dissects.</span></li>
+      <li><a class="x" href="https://newsletter.semianalysis.com/p/how-much-do-gpu-clusters-really-cost" target="_blank" rel="noopener">SemiAnalysis — How Much Do GPU Clusters Really Cost?</a><span class="why">Independent hands-on numbers: AWS checkpointless recovery at 1 m 45 s, provider-tier MTBF assumptions, goodput calculator.</span></li>
+      <li><a class="x" href="https://docs.nvidia.com/deploy/xid-errors/index.html" target="_blank" rel="noopener">NVIDIA — Xid Errors reference</a><span class="why">The canonical decoder ring for every error code in Section 4.1.</span></li>
+      <li><a class="x" href="https://docs.nvidia.com/datacenter/dcgm/latest/index.html" target="_blank" rel="noopener">NVIDIA — DCGM documentation</a><span class="why">Health checks, field IDs, and policy engine — the building blocks of drift detection.</span></li>
+      <li><a class="x" href="https://github.com/pytorch/torchft" target="_blank" rel="noopener">pytorch/torchft</a><span class="why">Fault-tolerant training that survives node loss without a full restart — the workload-side complement to node swapping.</span></li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>SOURCES: arxiv.org/abs/2410.21680 · crusoe.ai (AutoClusters, HBM row-remapping) · semianalysis.com · docs.nvidia.com</span>
+    <span>GPU FAILURE MODES &amp; REMEDIATION — FIELD BRIEF · REV. 2026-08</span>
+  </footer>
+</div>
+
+<script type="application/json" id="knowledge-manifest">
+{ "topic": "GPU fleet failure modes and automated remediation",
+  "concepts": [
+    {"term":"cordon","oneliner":"Scheduler metadata flag making a node unschedulable — instant, non-destructive."},
+    {"term":"drain","oneliner":"Evict a node's pods with grace periods so workloads can checkpoint via preStop hooks."},
+    {"term":"warm vs hot spare","oneliner":"Warm = validated in the provider pool (4–5 min swap); hot = pre-joined to your cluster, cordoned (~1–2 min, floor 30–60 s)."},
+    {"term":"goodput","oneliner":"G = (1 − (checkpoint + rollback + queue-wait)) × efficiency; queue wait is the biggest controllable term."},
+    {"term":"Xid","oneliner":"NVIDIA kernel-log error codes: 79 bus drop, 48 double-bit ECC, 119/120 GSP faults, 74 NVLink."},
+    {"term":"ECC creep","oneliner":"Correctable errors clustering on one HBM stack — act on the rate before an uncorrectable error hits."},
+    {"term":"row remapping","oneliner":"On-die HBM self-repair; committed on next full power cycle; recorded in InfoROM; usually avoids RMA."},
+    {"term":"straggler","oneliner":"A slow GPU with no error; synchronous allreduce makes the whole job run at its pace; only visible inside the workload."},
+    {"term":"SDC","oneliner":"Silent data corruption — wrong answers with no error flag; caught only by known-answer tests."},
+    {"term":"lemon node","oneliner":"Passes idle checks, fails under load, recycles through the fleet; cured by per-serial lineage (Meta: 14%→4%)."},
+    {"term":"correlated failure","oneliner":"Switch/PDU/driver push kills many nodes at once; circuit breakers must halt automation."},
+    {"term":"open-loop remediation","oneliner":"Provider emits events, customer sequences the response and calls the remediation API; default remains full-auto."},
+    {"term":"burn-in","oneliner":"Pre-fleet stress validation; paying it up-front enables zero-validation swaps later."}
+  ],
+  "mechanisms": [
+    "Failure lifecycle: Xid/DCGM detect (T+0) → cordon (instant) → drain with preStop grace (30 s) → warm spare joins with tenant network/fabric attach (~4 min) → scheduler resumes; job separately restores from checkpoint.",
+    "Physical loop (off critical path): failed node → diagnose via BMC/SEL/DCGM → GPU reset / power-cycle row-remap commit / RMA → burn-in → warm pool.",
+    "Detection ladder: kernel Xid events (hard, seconds) → DCGM counter trends (drift) → active load tests (lemons) → per-rank step-time stats (stragglers) → known-answer tests (SDC).",
+    "Circuit breaker: Tier-1 deterministic rule (N failures per rack per minute halts automation) → Tier-2 agent reasons over telemetry + lineage with a minutes-scale budget.",
+    "ECC repair path: correctable creep → dynamic page offlining (immediate, software) → hardware row remap committed on full power cycle → InfoROM persists it across reboots."
+  ],
+  "scenarios": [
+    "Your provider advertises 5-minute node replacement. A training job on 512 GPUs fails at 2 AM; total downtime observed is 22 minutes. Where did the other 17 go, and is the SLA claim false?",
+    "Ten nodes in rack 7 go NodeNotReady within 40 seconds. The auto-remediator starts pulling spares. What should have happened instead, and what signal distinguishes this from ten unlucky coincidences?",
+    "A customer on your bare-metal product reports their job runs 12% slower than last week; every node passes your health checks. What failure class is this, why can't you see it, and what API gap does it expose?",
+    "A GPU throws Xid 94 mid-run. Support offers migration to a spare or continuing on the node. What has already happened automatically, and what does the permanent fix require?",
+    "You're sizing a warm spare pool for a 2,000-GPU fleet. Name three constraints beyond raw count that determine whether the pool actually works during an incident."
+  ] }
+</script>
+
+<script>
+  const tabs = document.querySelectorAll('.tabs [role="tab"]');
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(b => b.setAttribute('aria-selected', b === btn ? 'true' : 'false'));
+      document.querySelectorAll('.tabpanel [role="tabpanel"]').forEach(p => {
+        p.hidden = (p.id !== btn.dataset.tab);
+      });
+    });
+  });
+  (function(){
+    const pop = document.createElement('div');
+    pop.id = 'glpop';
+    document.body.appendChild(pop);
+    let pinned = false;
+    function fill(link){
+      const id = (link.getAttribute('href')||'').slice(1);
+      const entry = document.getElementById(id);
+      if(!entry) return false;
+      const dt = entry.querySelector('dt');
+      const dd = entry.querySelector('dd');
+      if(!dt || !dd) return false;
+      const ext = dd.querySelector('a');
+      const def = dd.cloneNode(true);
+      def.querySelectorAll('a').forEach(a => a.remove());
+      pop.innerHTML =
+        '<span class="t">' + dt.textContent + '</span>' + def.innerHTML +
+        '<div class="links">' +
+        (ext ? '<a href="' + ext.href + '" target="_blank" rel="noopener">Dive deeper \u2197</a>' : '') +
+        '<a href="#' + id + '" class="jump">Full glossary \u2193</a></div>';
+      return true;
+    }
+    function show(link){
+      if(!fill(link)) return;
+      const r = link.getBoundingClientRect();
+      pop.style.display = 'block';
+      const pw = Math.min(300, window.innerWidth - 24);
+      pop.style.maxWidth = pw + 'px';
+      let x = window.scrollX + r.left;
+      const maxX = window.scrollX + window.innerWidth - pop.offsetWidth - 12;
+      if(x > maxX) x = Math.max(window.scrollX + 12, maxX);
+      pop.style.left = x + 'px';
+      pop.style.top = (window.scrollY + r.bottom + 8) + 'px';
+    }
+    function hide(){ pop.style.display = 'none'; pinned = false; }
+    document.querySelectorAll('a.gl').forEach(link => {
+      link.addEventListener('mouseenter', () => { if(!pinned) show(link); });
+      link.addEventListener('mouseleave', () => {
+        setTimeout(() => { if(!pinned && !pop.matches(':hover')) hide(); }, 120);
+      });
+      link.addEventListener('click', (e) => { e.preventDefault(); pinned = true; show(link); });
+    });
+    pop.addEventListener('mouseleave', () => { if(!pinned) hide(); });
+    pop.addEventListener('click', (e) => { if(e.target.classList.contains('jump')) hide(); });
+    document.addEventListener('click', (e) => {
+      if(pinned && !pop.contains(e.target) && !e.target.closest('a.gl')) hide();
+    });
+    window.addEventListener('scroll', () => { if(!pinned) hide(); }, {passive:true});
+  })();
+</script>
+</body>
+</html>
