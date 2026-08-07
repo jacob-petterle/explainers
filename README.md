@@ -19,6 +19,7 @@ now it leans infrastructure, but that's just where it started, not what it's lim
 
 ### Kubernetes & Multi-Tenancy
 - [vCluster & the OSS Line](vcluster-explainer.html)
+- [Seed & Shoot — Gardener](gardener-explainer.html)
 
 ### Bare Metal & Provisioning
 - [BMC & Redfish](bmc-redfish-explainer.html)
