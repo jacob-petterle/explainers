@@ -878,14 +878,43 @@ $ <span class="verb">kubectl</span> -n garden-acme get shoot prod -o yaml | <spa
       <div><span class="w">PICK EKS / GKE / AKS WHEN</span>You are on one cloud with a handful of clusters. Below roughly the point where per-cluster fees exceed a platform engineer's salary, buying beats building — and it is not close.</div>
       <div><span class="w">PICK RANCHER WHEN</span>You do not need a provisioning engine at all. You need one pane of glass, consistent RBAC and GitOps across clusters that already exist, made by anything. Different problem, much larger community.</div>
       <div><span class="w">PICK CROSSPLANE WHEN</span>Clusters are one item on a much longer list of cloud resources you want behind one declarative API. Accept that cluster homogeneity and Day-2 lifecycle become Compositions you write and maintain.</div>
+      <div><span class="w">PICK KAMAJI WHEN</span>You want Gardener's core trick and none of its weight: control planes as pods, one operator, in a cluster you already run. You already have a way to make worker nodes — Cluster API, Terraform, or bare metal you own — and you do not need version-expiry policy, credential-rotation choreography, or cloud-infrastructure provisioning built in. See the head-to-head below.</div>
       <div><span class="w">PICK HYPERSHIFT OR K0SMOTRON WHEN</span>You want control-planes-as-pods without adopting a whole platform. HyperShift if you are already committed to OpenShift; k0smotron for a lightweight, CNCF-sandbox option that also speaks Cluster API.</div>
     </div>
 
-    <h3 style="margin-top:34px">Three distinctions people get wrong</h3>
+    <h3 style="margin-top:38px">The closest twin: Kamaji</h3>
+    <p><a class="x" href="https://kamaji.clastix.io" target="_blank" rel="noopener">Kamaji</a>, from Clastix, deserves its own section rather than a table column, because it starts from <i>exactly</i> the same insight as Gardener — put tenant control planes in a namespace of a shared cluster as ordinary pods — and then makes almost every subsequent decision differently. Its vocabulary maps one-to-one onto Gardener's: a <b>Management Cluster</b> is a seed, a <b>Tenant Cluster</b> is a shoot, a <span class="mono">TenantControlPlane</span> resource is a Shoot.</p>
+    <p>The difference that matters most is <b>scope</b>. Gardener manages a cluster's entire existence: cloud infrastructure, control plane, worker nodes, versions, credentials, backups. Kamaji manages the control plane and stops. Its docs are explicit that tenant worker nodes are "regular virtual or bare metal machines that join a Tenant Cluster," and it points you at Terraform, Ansible or Cluster API to produce them. That is a smaller promise, honestly stated — and for many teams it is the right size.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Dimension</th><th>Gardener</th><th>Kamaji</th></tr></thead>
+        <tbody>
+          <tr><td>Scope</td><td>Infrastructure + control plane + nodes + Day-2</td><td class="win">The control plane, and only the control plane — a much smaller thing to be responsible for</td></tr>
+          <tr><td>Control-plane placement</td><td>Pods in a seed, one namespace per shoot</td><td>Pods in a management cluster, one per tenant — the same trick</td></tr>
+          <tr><td>Built from</td><td>Gardener's own component set, assembled by gardenlet</td><td class="win">Upstream unmodified components via <span class="mono">kubeadm</span>, which keeps conformance trivially true</td></tr>
+          <tr><td>Datastore</td><td>A dedicated <span class="mono">etcd-main</span> + <span class="mono">etcd-events</span> pair per shoot, run by etcd-druid, backed up per cluster</td><td class="win">One datastore shared by every tenant <i>by default</i>; etcd, or MySQL/PostgreSQL through kine. Pools and live migration between same-driver datastores are supported</td></tr>
+          <tr><td>Worker nodes</td><td>machine-controller-manager creates the VMs from Machine/MachineDeployment objects</td><td>Not its job. Bring your own, or drive Cluster API</td></tr>
+          <tr><td>Cloud infrastructure</td><td>VPC, subnets, IAM, DNS via provider extensions</td><td>None — you bring the network</td></tr>
+          <tr><td>Day-2 lifecycle</td><td class="win">Version classification with enforced expiry, multi-phase credential rotation, hibernation, HA tiers, control-plane migration</td><td>Control-plane upgrades and certificate handling; the policy layer is yours to build</td></tr>
+          <tr><td>Cluster API</td><td>An optional bridge — <span class="mono">cluster-api-provider-gardener</span>, experimental</td><td class="win">A first-class control-plane provider and a normal way to run it</td></tr>
+          <tr><td>Weight to operate</td><td>A landscape: garden cluster, seeds, extension registrations, version skew across all of it</td><td class="win">One operator in one cluster you already have</td></tr>
+          <tr><td>Community (Aug 2026)</td><td class="win">3.4k★ / 588 forks</td><td>2.0k★ / 208 forks</td></tr>
+          <tr><td>Licence</td><td class="win">Apache-2.0, foundation-governed (NeoNephos); every release is a plain tagged artifact</td><td>Apache-2.0, vendor-led (Clastix). Since July 2024 the free artifacts are an unpinned <span class="mono">latest</span> tag and a monthly <span class="mono">-edge</span> release; <b>version-pinned stable builds are subscription-only</b>, and some addons are closed-source</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout"><b>The datastore row is the one to sit with.</b> Gardener gives every shoot its own etcd pair, on the reasoning that a cluster's state deserves its own failure domain, its own backup schedule and its own restore path. Kamaji's own documentation says the opposite out loud: <i>"By default, Kamaji can persist all Tenant Clusters' data in a single datastore."</i> Its published benchmark runs <b>100 tenant control planes against one shared etcd</b> — where Gardener would have provisioned two hundred etcd processes.</div>
+    <p>How tenants are kept apart inside that shared store depends on the driver, and the difference is worth knowing before you pick one. On <b>SQL</b> Kamaji issues a <span class="mono">CREATE DATABASE</span> per tenant and grants a dedicated user rights to that database alone. On <b>etcd</b> there is one keyspace for everybody: each tenant gets a user bound to a role scoped to a key <i>prefix</i> range. Both are real boundaries; only one of them is a boundary the storage engine would still enforce if the authorisation config were wrong. You can also pool datastores, give a demanding tenant a dedicated one, or live-migrate between two of the same driver.</p>
+    <p>Two smaller contrasts are telling. Kamaji builds on <b>Konnectivity</b> for reaching worker nodes — the upstream mechanism Gardener shipped as an alpha feature gate, then removed at v1.27 in favour of its own reversed VPN. And Kamaji reaches the same "don't buy a load balancer per cluster" conclusion Gardener did, arriving via Gateway API and SNI routing rather than Istio. Two teams, the same constraints, different answers.</p>
+    <p>Neither is a subset of the other. If you want an engine to <i>sell</i> homogeneous Kubernetes across four clouds with an EOL policy you can enforce fleet-wide, Kamaji leaves most of that to you. If you have infrastructure automation you already trust and simply want to stop paying for control-plane VMs, Gardener is an enormous amount of platform to adopt for that one benefit.</p>
+    <p style="font-size:14px;color:var(--dim)">Both sides of that table were read the same way: from the projects' own repositories rather than their marketing — <span class="mono">gardener/gardener</span> at v1.148.2 and <span class="mono">clastix/kamaji</span> at its August 2026 edge release. Where the two disagree about each other, this sheet follows the source.</p>
+
+    <h3 style="margin-top:34px">Distinctions people get wrong</h3>
     <ul class="pins">
       <li><span class="pin">vs CAPI</span>Both create clusters, but they harmonise different things. Gardener's own docs put it well: <b>"Cluster API primarily harmonizes how to get to clusters, while Gardener goes a significant step further by also harmonizing the clusters themselves."</b> They are also converging rather than competing — <span class="mono">cluster-api-provider-gardener</span>, announced in August 2025, lets standard CAPI manifests drive Gardener Shoots.</li>
       <li><span class="pin">vs vcluster</span>A vcluster is a <i>virtual</i> control plane whose pods run on the host cluster's nodes and share its kernel. A Gardener shoot is a <i>real</i> cluster with its own nodes, its own kernel, its own CNI and its own cloud infrastructure. Both are "control plane as pods"; only one gives you an isolation boundary.</li>
       <li><span class="pin">vs Crossplane</span>Crossplane is a framework for controlling <i>any</i> cloud resource declaratively — including clusters, if you write the Composition. Gardener is an opinionated product for exactly one resource. Crossplane is a strictly larger surface and a strictly smaller opinion.</li>
+      <li><span class="pin">vs Kamaji</span>The same core trick, a deliberately different scope. Both run tenant control planes as pods; only Gardener also builds the cloud infrastructure, creates the worker nodes and enforces a version policy. The tell is the datastore: Gardener isolates every cluster's state into its own etcd pair, Kamaji shares one datastore across tenants by default. Density versus blast radius, chosen in opposite directions.</li>
       <li><span class="pin">NOT rivals</span>Karmada and Sveltos manage workload placement <i>across</i> clusters that already exist. They sit above the provisioning question and are frequently run on top of Gardener rather than instead of it.</li>
     </ul>
   </section>
@@ -1186,12 +1215,13 @@ cd frontend &amp;&amp; yarn setup &amp;&amp; yarn serve</pre>
       <li><a class="x" href="https://github.com/gardener/gardener/blob/master/docs/deployment/getting_started_locally.md" target="_blank" rel="noopener">Local setup guide</a><span class="why">The authoritative version of Section 10's labs, maintained alongside the code. Check it if a make target here has moved.</span></li>
       <li><a class="x" href="https://gardener.cloud/adopter/" target="_blank" rel="noopener">Gardener adopters</a><span class="why">Sixteen organisations, each with a one-line statement of why they use it. The fastest read on whether your situation resembles anyone else's.</span></li>
       <li><a class="x" href="https://cluster-api.sigs.k8s.io" target="_blank" rel="noopener">The Cluster API Book</a><span class="why">The main alternative, documented properly. Worth reading even if you choose Gardener — most of the ecosystem assumes CAPI's vocabulary.</span></li>
+      <li><a class="x" href="https://kamaji.clastix.io/concepts/" target="_blank" rel="noopener">Kamaji concepts</a><span class="why">The nearest thing to a control experiment: the same hosted-control-plane idea, scoped to the control plane alone. Read the Datastore page in particular — sharing one store across tenants is the decision Gardener refused to make.</span></li>
       <li><a class="x" href="https://neonephos.org" target="_blank" rel="noopener">NeoNephos Foundation</a><span class="why">The Linux Foundation Europe body that now hosts Gardener, Garden Linux and IronCore. Context for the governance and digital-sovereignty story behind the project's direction.</span></li>
     </ul>
   </section>
 
   <footer>
-    <span>SOURCES: gardener.cloud/docs &middot; github.com/gardener/gardener (v1.148.2) &middot; github.com/gardener/enhancements &middot; neonephos.org &middot; GitHub Security Advisories</span>
+    <span>SOURCES: gardener.cloud/docs &middot; github.com/gardener/gardener (v1.148.2) &middot; github.com/gardener/enhancements &middot; kamaji.clastix.io &middot; github.com/clastix/kamaji &middot; neonephos.org &middot; GitHub Security Advisories</span>
     <span>GARDENER — TECHNICAL EXPLAINER &middot; REV. 2026.08</span>
   </footer>
 </div>
@@ -1215,7 +1245,8 @@ cd frontend &amp;&amp; yarn setup &amp;&amp; yarn serve</pre>
     {"term": "Version classification", "oneliner": "preview to supported to deprecated to expired; once expired, the next maintenance window force-upgrades the cluster regardless of the owner's auto-update setting."},
     {"term": "Flow", "oneliner": "Gardener's internal DAG executor; creating a shoot is 122 named tasks, and those names appear verbatim in the Shoot's lastOperation description."},
     {"term": "ManagedSeed", "oneliner": "A shoot promoted to also be a seed, which is how production fleets grow seed capacity."},
-    {"term": "NeoNephos", "oneliner": "The Linux Foundation Europe foundation that has hosted Gardener since 2025 — Gardener is not a CNCF-hosted project."}
+    {"term": "NeoNephos", "oneliner": "The Linux Foundation Europe foundation that has hosted Gardener since 2025 — Gardener is not a CNCF-hosted project."},
+    {"term": "Kamaji", "oneliner": "The closest architectural twin: tenant control planes as pods in a management cluster, but scoped to the control plane only, and sharing one datastore across tenants by default."}
   ],
   "mechanisms": [
     "kubectl apply -f shoot.yaml, then: admission validates against the CloudProfile, gardener-scheduler writes spec.seedName, the matching gardenlet runs the reconcile flow, and status.lastOperation reports the current task name and percentage.",
@@ -1233,7 +1264,9 @@ cd frontend &amp;&amp; yarn setup &amp;&amp; yarn serve</pre>
     "A customer demands that no other tenant's operator can read their cluster's secrets. They are willing to pay for it. What does Gardener's architecture let you promise, what does it not, and what do you actually sell them?",
     "A colleague proposes replacing your Gardener landscape with Cluster API plus a few controllers, arguing it is the same thing with a bigger community. Which specific capabilities would you have to rebuild, and where is the proposal actually right?",
     "You annotate a shoot with rotate-ca-start and it completes. A week later an external service that talks to that cluster starts failing TLS verification, and you have not yet run rotate-ca-complete. What happened?",
-    "A landscape has fifteen seeds. Fourteen run gardenlet v1.148, one was missed and runs v1.146. An extension author ships a release built against the v1.148 library. What breaks, and where?"
+    "A landscape has fifteen seeds. Fourteen run gardenlet v1.148, one was missed and runs v1.146. An extension author ships a release built against the v1.148 library. What breaks, and where?",
+    "A colleague demos Kamaji and points out it does the same control-planes-as-pods trick in one operator instead of a whole landscape, so the Gardener migration should be cancelled. Name the three things you would have to build yourself, and the one situation where they are right.",
+    "You are choosing a datastore model for a platform selling clusters to unrelated companies. Kamaji's default shares one datastore across tenants; Gardener gives each its own etcd pair. Argue for the more expensive option using a failure scenario, not a principle."
   ]
 }
 </script>
